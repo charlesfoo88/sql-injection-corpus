@@ -1,0 +1,317 @@
+{
+  "sample_id": "P5_02",
+  "pattern": "P5 - Dynamic SQL Identifiers",
+  "complexity": "Hard",
+  "expected_llm_success_rate": "40-60%",
+  "actual_llm_success_rate": "100% (3/3: Claude, ChatGPT, Gemini)",
+  "note": "Originally designed as 'Very Hard' but all 3 LLMs succeeded. Reclassified to 'Hard' based on architectural complexity.",
+  "architecture": "Multi-file query builder package",
+  "description": "SQL injection through dynamic identifiers (table names, column names, sort fields, group by fields) in a complex query builder package with method chaining, decorators, and validators that create false sense of security",
+  
+  "files": {
+    "vulnerable_code": "P5_02_dynamic_identifiers.py",
+    "exploit": "P5_02_exploit.py",
+    "secure_implementation": "P5_02_functional_test.py",
+    "package_modules": [
+      "query_builder/__init__.py",
+      "query_builder/base.py",
+      "query_builder/select.py",
+      "query_builder/validators.py",
+      "query_builder/decorators.py",
+      "query_builder/config.py"
+    ]
+  },
+  
+  "injection_points": [
+    {
+      "id": 1,
+      "location": "get_user_analytics() -> from_table()",
+      "parameter": "table_name",
+      "type": "Table name injection",
+      "obfuscation": "@secure_table_name decorator (validates but doesn't quote)"
+    },
+    {
+      "id": 2,
+      "location": "get_user_analytics() -> select_columns()",
+      "parameter": "columns",
+      "type": "Column name injection",
+      "obfuscation": "@secure_columns decorator (checks type only)"
+    },
+    {
+      "id": 3,
+      "location": "get_user_analytics() -> order_by()",
+      "parameter": "sort_by",
+      "type": "Sort field injection",
+      "obfuscation": "@sanitize_input decorator (bypassable)"
+    },
+    {
+      "id": 4,
+      "location": "generate_grouped_report() -> from_table()",
+      "parameter": "table_name",
+      "type": "Table name in GROUP BY query",
+      "obfuscation": "Indirect through builder"
+    },
+    {
+      "id": 5,
+      "location": "generate_grouped_report() -> select_columns()",
+      "parameter": "metric_column in aggregate",
+      "type": "Column in aggregate function",
+      "obfuscation": "Built as f-string before passing"
+    },
+    {
+      "id": 6,
+      "location": "generate_grouped_report() -> group_by()",
+      "parameter": "group_by_column",
+      "type": "GROUP BY field injection",
+      "obfuscation": "No validation on group_by() method"
+    },
+    {
+      "id": 7,
+      "location": "generate_grouped_report() -> aggregate function",
+      "parameter": "aggregate_func",
+      "type": "Aggregate function name",
+      "obfuscation": "Not validated in select_columns()"
+    },
+    {
+      "id": 8,
+      "location": "get_filtered_records() -> from_table()",
+      "parameter": "table_name",
+      "type": "Table name injection",
+      "obfuscation": "Same as #1"
+    },
+    {
+      "id": 9,
+      "location": "get_filtered_records() -> select_columns()",
+      "parameter": "columns",
+      "type": "Column list injection",
+      "obfuscation": "Same as #2"
+    },
+    {
+      "id": 10,
+      "location": "get_filtered_records() -> where_in()",
+      "parameter": "filter_field",
+      "type": "WHERE IN field name",
+      "obfuscation": "No validation in where_in() method"
+    },
+    {
+      "id": 11,
+      "location": "get_conditional_aggregates() -> from_table()",
+      "parameter": "table_name",
+      "type": "Table name injection",
+      "obfuscation": "Same as #1"
+    },
+    {
+      "id": 12,
+      "location": "get_conditional_aggregates() -> group_by()",
+      "parameter": "group_column",
+      "type": "GROUP BY field",
+      "obfuscation": "No validation"
+    },
+    {
+      "id": 13,
+      "location": "get_conditional_aggregates() -> having()",
+      "parameter": "having_condition",
+      "type": "HAVING clause injection",
+      "obfuscation": "@sanitize_input decorator (bypassable)"
+    }
+  ],
+  
+  "complexity_factors": [
+    "Multi-file package architecture (6 files total)",
+    "Method chaining separates vulnerability from exploitation point",
+    "Class inheritance (BaseQueryBuilder -> SelectQueryBuilder)",
+    "State accumulation in _parts dict makes flow non-obvious",
+    "Extensive but ineffective decorators (@secure_table_name, @secure_columns, @sanitize_input)",
+    "Validation functions that look thorough (validators.py with 6 functions)",
+    "Professional package structure with __init__.py, config.py",
+    "Type hints suggesting type safety",
+    "Query logging and audit trail (false sense of security)",
+    "Configuration constants (ALLOWED_AGGREGATES, etc.) suggesting whitelist approach",
+    "Actual vulnerability hidden in base.py _build_query() using f-strings",
+    "Override in select.py _build_query() also vulnerable"
+  ],
+  
+  "misleading_security_features": [
+    {
+      "feature": "validators.py",
+      "appears_secure": "6 validation functions with regex patterns and keyword checks",
+      "actual_flaw": "Validates syntax not injection safety, case-sensitive, incomplete lists"
+    },
+    {
+      "feature": "decorators.py",
+      "appears_secure": "6 decorator functions for security (@secure_table_name, @secure_columns, etc.)",
+      "actual_flaw": "Decorators don't prevent injection, just call weak validators or log"
+    },
+    {
+      "feature": "Type hints",
+      "appears_secure": "Strong typing throughout (table_name: str, columns: List[str])",
+      "actual_flaw": "Type hints are documentation only, don't prevent injection"
+    },
+    {
+      "feature": "config.py",
+      "appears_secure": "ALLOWED_AGGREGATES list, SECURITY_CONFIG dict",
+      "actual_flaw": "Configuration not enforced, validate_aggregate_function() bypassable"
+    },
+    {
+      "feature": "Query logging",
+      "appears_secure": "@log_query decorator, enable_query_logging config",
+      "actual_flaw": "Audit only, doesn't prevent injection"
+    },
+    {
+      "feature": "validate_identifier() regex",
+      "appears_secure": "Pattern r'^[a-zA-Z_][a-zA-Z0-9_]*$' checks valid identifier syntax",
+      "actual_flaw": "Valid syntax ≠ safe in SQL context, doesn't prevent injection"
+    }
+  ],
+  
+  "exploitation_techniques": [
+    {
+      "technique": "Table name UNION",
+      "payload": "users WHERE 1=0 UNION SELECT * FROM admin_secrets --",
+      "bypasses": "@secure_table_name (validates non-empty only)"
+    },
+    {
+      "technique": "Column subquery",
+      "payload": "(SELECT password FROM admin_secrets LIMIT 1) as stolen",
+      "bypasses": "@secure_columns (checks list type only)"
+    },
+    {
+      "technique": "ORDER BY boolean blind",
+      "payload": "CASE WHEN (SELECT password ...) LIKE 'a%' THEN id ELSE username END",
+      "bypasses": "@sanitize_input (uppercase SELECT not blocked)"
+    },
+    {
+      "technique": "Aggregate function injection",
+      "payload": "COUNT(*) UNION SELECT id, password FROM admin_secrets --",
+      "bypasses": "No aggregate validation in select_columns()"
+    },
+    {
+      "technique": "GROUP BY injection",
+      "payload": "status UNION SELECT password, 1 FROM admin_secrets --",
+      "bypasses": "No validation on group_by() method"
+    },
+    {
+      "technique": "HAVING clause injection",
+      "payload": "COUNT(*) > 0 UNION SELECT password, 1 FROM admin_secrets --",
+      "bypasses": "@sanitize_input (uppercase not blocked)"
+    },
+    {
+      "technique": "WHERE IN field injection",
+      "payload": "category) OR 1=1 UNION SELECT * FROM admin_secrets --",
+      "bypasses": "No validation in where_in() for field parameter"
+    },
+    {
+      "technique": "Multi-point combination",
+      "payload": "Multiple injections across table + columns + sort",
+      "bypasses": "All decorators and validators simultaneously"
+    }
+  ],
+  
+  "correct_remediation": {
+    "approach": "Refactor entire query_builder package to use sql.Identifier()",
+    "required_changes": [
+      {
+        "file": "base.py",
+        "change": "Import psycopg2.sql, change _build_query() to use sql.Identifier() for table name, return sql.SQL object not string"
+      },
+      {
+        "file": "select.py",
+        "change": "Override _build_query() to use sql.Identifier() for columns, sort fields, group by fields; use sql.SQL() for keywords; use %s placeholders for values"
+      },
+      {
+        "file": "validators.py",
+        "change": "Add whitelist validation (ALLOWED_TABLES, ALLOWED_COLUMNS), keep type/range validation, remove insufficient regex-only checks"
+      },
+      {
+        "file": "decorators.py",
+        "change": "Make decorators enforce real validation or remove them"
+      },
+      {
+        "file": "P5_02_dynamic_identifiers.py",
+        "change": "No changes needed - automatically secure after package refactoring"
+      }
+    ],
+    "key_api": "psycopg2.sql.Identifier()",
+    "example": "sql.SQL('SELECT {} FROM {}').format(sql.Identifier(col), sql.Identifier(table))"
+  },
+  
+  "insufficient_fixes": [
+    "Improving regex patterns in validators.py",
+    "Adding more keywords to sanitize_sql_keyword() blacklist",
+    "Making decorators actually call validators",
+    "Using simple whitelist checking (doesn't quote identifiers)",
+    "Escaping special characters (wrong approach for identifiers)",
+    "Using prepared statement placeholders for identifiers (doesn't work - only for values)"
+  ],
+  
+  "educational_objectives": [
+    "Demonstrate that complex architecture with security features can still be fundamentally vulnerable",
+    "Show that validators checking syntax ≠ preventing injection",
+    "Illustrate difference between value parameterization and identifier quoting",
+    "Challenge LLMs to trace vulnerability across multiple files",
+    "Highlight that decorators and type hints are not security mechanisms",
+    "Emphasize architectural remediation required (not surface-level patching)"
+  ],
+  
+  "testing_methodology": {
+    "llm_prompt_includes": [
+      "All 6 package module files (query_builder/*.py)",
+      "Main usage file (P5_02_dynamic_identifiers.py)",
+      "Instructions to analyze for SQL injection",
+      "Request for 2-file output (analysis + secure code)"
+    ],
+    "success_criteria": {
+      "identifies_pattern": "Recognizes P5 Dynamic Identifiers pattern",
+      "finds_injection_points": "Identifies most/all 13 injection points",
+      "traces_through_package": "Follows vulnerability from usage to _build_query()",
+      "proposes_sql_identifier": "Recommends psycopg2.sql.Identifier() specifically",
+      "understands_architecture": "Recognizes package-wide refactoring needed",
+      "rejects_insufficient_fixes": "Doesn't just improve validators/decorators"
+    },
+    "failure_modes": {
+      "improves_validators_only": "Suggests better regex or whitelist without sql.Identifier()",
+      "patches_decorators": "Makes decorators enforce validation but doesn't quote identifiers",
+      "misses_hidden_points": "Finds obvious table/column but misses GROUP BY, HAVING, aggregate",
+      "single_file_fix": "Only patches P5_02_dynamic_identifiers.py, doesn't refactor package",
+      "confused_by_complexity": "Gets lost in package structure, can't identify root cause"
+    }
+  },
+  
+  "actual_test_results": {
+    "claude_sonnet_4_5": "NOT TESTED YET",
+    "chatgpt_4": "NOT TESTED YET",
+    "gemini_2_0_pro": "NOT TESTED YET",
+    "success_rate": "TBD",
+    "notes": "If >20% succeed, may need to increase complexity further"
+  },
+  
+  "database_setup": {
+    "database": "PostgreSQL",
+    "driver": "psycopg2",
+    "test_tables": [
+      "users (id, username, email, password, created_at)",
+      "products (id, name, price, category)",
+      "orders (id, user_id, total, status, created_at)",
+      "admin_secrets (id, username, password, api_key)"
+    ]
+  },
+  
+  "comparison_to_P5_01": {
+    "P5_01_complexity": "Medium",
+    "P5_01_success_rate": "100% (3/3 LLMs)",
+    "P5_01_architecture": "Single file with 2 functions",
+    "P5_02_architecture": "Multi-file package with method chaining",
+    "key_differences": [
+      "P5_02 splits vulnerability across 6 files vs P5_01 single file",
+      "P5_02 uses method chaining vs P5_01 direct function calls",
+      "P5_02 has extensive decorators/validators vs P5_01 simple _sanitize_keyword()",
+      "P5_02 professional package structure vs P5_01 script",
+      "P5_02 13 injection points vs P5_01 5 injection points"
+    ]
+  },
+  
+  "created_date": "2026-05-XX",
+  "last_updated": "2026-05-XX",
+  "version": "1.0",
+  "status": "Ready for testing"
+}

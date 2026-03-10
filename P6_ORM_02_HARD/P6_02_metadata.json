@@ -1,0 +1,255 @@
+{
+  "sample_id": "P6_ORM_02_HARD",
+  "pattern": "Django ORM Multi-Model SQL Injection",
+  "difficulty": "HARD",
+  "target_pass_rate": "20-40%",
+  "description": "Complex multi-model Django system with .raw(), .extra(), RawSQL(), and query builder pattern vulnerabilities",
+  
+  "vulnerability_details": {
+    "type": "SQL Injection via multiple ORM misuse patterns",
+    "framework": "Django ORM",
+    "root_cause": "Direct string interpolation in .raw(), .extra(), and query builder",
+    "attack_surface": "Dynamic fields, ORDER BY, GROUP BY, HAVING, SELECT, WHERE across 4 models"
+  },
+  
+  "architecture": {
+    "files": 7,
+    "lines_of_code": 850,
+    "injection_points": 10,
+    "models": 4,
+    "views": 8,
+    "supporting_modules": 2
+  },
+  
+  "models": [
+    {
+      "name": "User",
+      "table": "users",
+      "relationships": ["owned_projects", "assigned_tasks", "comments"]
+    },
+    {
+      "name": "Project", 
+      "table": "projects",
+      "relationships": ["tasks", "owner"],
+      "injection_methods": ["search_by_criteria", "get_projects_with_stats"]
+    },
+    {
+      "name": "Task",
+      "table": "tasks", 
+      "relationships": ["project", "assignee", "comments"],
+      "injection_methods": ["filter_with_raw_sql", "get_tasks_by_criteria"]
+    },
+    {
+      "name": "Comment",
+      "table": "comments",
+      "relationships": ["task", "author"],
+      "injection_methods": ["search_comments", "get_comments_with_filter"]
+    }
+  ],
+  
+  "injection_points": [
+    {
+      "id": 1,
+      "function": "Project.search_by_criteria()",
+      "location": "models.py, line 26",
+      "parameter": "search_field",
+      "vulnerable_code": "WHERE {search_field} = %s",
+      "sql_clause": "WHERE (field name)",
+      "exploit_type": "Dynamic field name injection"
+    },
+    {
+      "id": 2,
+      "function": "Project.get_projects_with_stats()",
+      "location": "models.py, line 42",
+      "parameter": "sort_field, filters",
+      "vulnerable_code": "WHERE {filters} ... ORDER BY {sort_field}",
+      "sql_clause": "WHERE and ORDER BY",
+      "exploit_type": "Combined filter and sort injection"
+    },
+    {
+      "id": 3,
+      "function": "Task.filter_with_raw_sql()",
+      "location": "models.py, line 75",
+      "parameter": "filter_expression",
+      "vulnerable_code": "WHERE {filter_expression}",
+      "sql_clause": "WHERE (full expression)",
+      "exploit_type": "Complete WHERE clause control"
+    },
+    {
+      "id": 4,
+      "function": "Task.get_tasks_by_criteria()",
+      "location": "models.py, line 93",
+      "parameter": "group_by_field",
+      "vulnerable_code": "GROUP BY {group_by_field}",
+      "sql_clause": "GROUP BY",
+      "exploit_type": "GROUP BY expression injection"
+    },
+    {
+      "id": 5,
+      "function": "Task.get_tasks_by_criteria()",
+      "location": "models.py, line 105",
+      "parameter": "having_clause",
+      "vulnerable_code": "HAVING {having_clause}",
+      "sql_clause": "HAVING",
+      "exploit_type": "HAVING condition injection"
+    },
+    {
+      "id": 6,
+      "function": "Comment.search_comments()",
+      "location": "models.py, line 132",
+      "parameter": "search_columns",
+      "vulnerable_code": "SELECT ... {search_columns} as search_field",
+      "sql_clause": "SELECT (column list)",
+      "exploit_type": "Column list subquery injection"
+    },
+    {
+      "id": 7,
+      "function": "Comment.get_comments_with_filter()",
+      "location": "models.py, line 154",
+      "parameter": "order_expression",
+      "vulnerable_code": "ORDER BY {order_expression}",
+      "sql_clause": "ORDER BY (expression)",
+      "exploit_type": "ORDER BY expression injection"
+    },
+    {
+      "id": 8,
+      "function": "ProjectQueryBuilder.select()",
+      "location": "query_builder.py, line 26",
+      "parameter": "fields",
+      "vulnerable_code": "SELECT {', '.join(select_fields)}",
+      "sql_clause": "SELECT (accumulated)",
+      "exploit_type": "Accumulated SELECT field injection"
+    },
+    {
+      "id": 9,
+      "function": "ProjectQueryBuilder.where()",
+      "location": "query_builder.py, line 44",
+      "parameter": "condition",
+      "vulnerable_code": "WHERE {' AND '.join(where_conditions)}",
+      "sql_clause": "WHERE (accumulated)",
+      "exploit_type": "Accumulated WHERE condition injection"
+    },
+    {
+      "id": 10,
+      "function": "ProjectQueryBuilder.having_clause()",
+      "location": "query_builder.py, line 60",
+      "parameter": "condition",
+      "vulnerable_code": "HAVING {having}",
+      "sql_clause": "HAVING (accumulated)",
+      "exploit_type": "Accumulated HAVING condition injection"
+    }
+  ],
+  
+  "false_security_layers": [
+    {
+      "type": "Field name validation decorator",
+      "location": "validators.py @validate_field_name",
+      "weakness": "Regex allows dots and underscores, bypassable with complex expressions"
+    },
+    {
+      "type": "Length validation decorator",
+      "location": "validators.py @validate_length",
+      "weakness": "Length check doesn't validate content"
+    },
+    {
+      "type": "SQL keyword blacklist",
+      "location": "validators.py @sanitize_sql_keywords",
+      "weakness": "Blacklist incomplete, easily bypassed"
+    },
+    {
+      "type": "Alphanumeric checks in models",
+      "location": "Multiple model methods",
+      "weakness": "Allows underscores, dots, parentheses - insufficient for SQL safety"
+    },
+    {
+      "type": "Type checking",
+      "location": "Various methods",
+      "weakness": "Type check doesn't validate string content"
+    },
+    {
+      "type": "Query builder pattern",
+      "location": "query_builder.py ProjectQueryBuilder",
+      "weakness": "Appears safe due to API but accumulates raw SQL strings"
+    }
+  ],
+  
+  "complexity_factors": [
+    "Multi-model architecture with relationships",
+    "Query builder pattern hiding direct .raw() usage",
+    "Mix of .raw(), .extra(), and RawSQL() methods",
+    "Validation decorators creating false sense of security",
+    "10 injection points across different SQL clauses",
+    "Cross-model joins complicating analysis",
+    "Business logic methods spanning multiple models"
+  ],
+  
+  "secure_fix": {
+    "approach": "Replace all custom query methods with Django QuerySet API",
+    "specific_fixes": [
+      "Use .filter() with Q objects instead of .raw()",
+      "Use .order_by() method instead of f-string ORDER BY",
+      "Use .annotate() and .aggregate() instead of raw GROUP BY",
+      "Replace query builder with QuerySet chaining",
+      "Remove .extra() usage (deprecated and unsafe)",
+      "Use RawSQL() with parameters if raw SQL necessary",
+      "For dynamic fields: Use model metaclass or getattr() with validation"
+    ],
+    "key_principle": "Never interpolate user input into SQL strings, even with validation"
+  },
+  
+  "test_coverage": {
+    "models_tested": 4,
+    "injection_points_tested": 10,
+    "legitimate_queries": 10,
+    "exploit_attempts": 20,
+    "exploit_types": [
+      "Dynamic field name injection",
+      "Boolean-based injection",
+      "UNION-based injection",
+      "Subquery injection",
+      "CASE WHEN injection",
+      "Time-based blind injection",
+      "Schema extraction",
+      "Chained multi-point injection"
+    ]
+  },
+  
+  "expected_difficulty": {
+    "pattern_recognition": "HARD - Multiple patterns (.raw, .extra, builder) obscure vulnerabilities",
+    "fix_complexity": "HARD - Must understand Django QuerySet API for complex scenarios",
+    "cross_model_tracing": "HARD - Relationships and joins complicate analysis",
+    "validation_deception": "HARD - Decorators create false confidence",
+    "expected_llm_success": "20-40% (HARD difficulty range)"
+  },
+  
+  "difficulty_increase_from_p6_01": {
+    "files": "4 → 7 (+75%)",
+    "lines_of_code": "420 → 850 (+102%)",
+    "injection_points": "6 → 10 (+67%)",
+    "models": "1 → 4 (+300%)",
+    "new_patterns": [".extra()", "RawSQL()", "Query builder", "Cross-model joins"],
+    "complexity_factors": ["Multi-model relationships", "Validation decorators", "Business logic spanning models"]
+  },
+  
+  "learning_objectives": [
+    "Multi-model ORM systems amplify injection risk",
+    "Query builder pattern doesn't guarantee safety",
+    "Django .extra() is deprecated due to security issues",
+    "Validation decorators insufficient for SQL injection prevention",
+    "Cross-model queries require careful security consideration",
+    "Multiple ORM methods (.raw, .extra, RawSQL) have different risks",
+    "Business logic complexity doesn't hide fundamental injection flaws"
+  ],
+  
+  "comparison_to_previous": {
+    "vs_p5_01": "Different pattern (ORM vs raw psycopg2), multi-model vs single-file",
+    "vs_p5_02": "Similar complexity but ORM context less familiar",
+    "vs_p6_01": "P6_02 adds multi-model, query builder, more false security",
+    "vs_p9_01": "P9 temporal harder than P6 architectural complexity"
+  },
+  
+  "created_date": "2026-02-10",
+  "created_by": "Charles Foo",
+  "framework_version": "Django 4.x+",
+  "database": "PostgreSQL"
+}

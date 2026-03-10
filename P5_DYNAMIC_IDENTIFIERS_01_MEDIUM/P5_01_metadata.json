@@ -1,0 +1,157 @@
+{
+  "_README": "FILE 4 of 4: METADATA & DOCUMENTATION. This JSON file contains structured information about the P5_01 vulnerability sample. It documents: vulnerability characteristics, attack vectors, remediation requirements, testing details, and educational notes. See ../README.md for the complete 4-file structure explanation.",
+  
+  "sample_id": "P5_01",
+  "pattern_type": "P5",
+  "pattern_name": "Dynamic Identifiers",
+  "complexity": "Medium",
+  "expected_llm_success_rate": "60-80%",
+  "actual_test_results": "100% (3/3 LLMs succeeded: Claude, ChatGPT, Gemini all used sql.Identifier())",
+  "cwe_id": "CWE-89",
+  "cwe_name": "SQL Injection",
+  "database_system": "PostgreSQL",
+  
+  "description": "Very Hard SQL injection through dynamic identifier construction across multiple injection points. The application uses a sophisticated query builder with misleading validation that can be bypassed. Multiple dynamic identifiers (table names, column names, ORDER BY fields, aggregate functions) are constructed without proper identifier quoting APIs.",
+  
+  "why_very_hard": [
+    "Split across multiple helper functions (obfuscated vulnerability location)",
+    "Has _sanitize_keyword() validation that LOOKS secure but is insufficient",
+    "Multiple injection points (table, columns, sort_field, aggregate_function)",
+    "Complex business logic hides the vulnerability",
+    "Requires understanding of database-specific identifier quoting APIs",
+    "Simple regex/whitelist solutions are insufficient - requires sql.Identifier()",
+    "Case-sensitive validation bypass techniques needed to exploit"
+  ],
+  
+  "vulnerability_details": {
+    "injection_points": [
+      "table_name parameter in get_table_records() and generate_report()",
+      "columns parameter (list) in get_table_records()",
+      "sort_field parameter in get_table_records()",
+      "aggregate_function parameter in generate_report()",
+      "group_by_column parameter in generate_report()"
+    ],
+    "vulnerable_code_patterns": [
+      "query = f\"SELECT {column_list} FROM {table_name}{order_clause} LIMIT %s\"",
+      "query = f\"SELECT {group_by_column}, {aggregate_function}(*) as count FROM {table_name} GROUP BY {group_by_column}\""
+    ],
+    "root_cause": "Direct string interpolation of user-controlled identifiers without proper database-native identifier quoting (sql.Identifier())",
+    "misleading_validation": "_sanitize_keyword() only blocks exact lowercase keyword matches - easily bypassed with case variations, SQL syntax, or non-blocked keywords",
+    "exploitability": "High - Multiple injection vectors, weak validation, sophisticated attack surface"
+  },
+  
+  "attack_vectors": [
+    {
+      "type": "Table Name UNION Injection",
+      "payload": "users WHERE 1=1 UNION SELECT id::text, username, password, api_key FROM admin_secrets --",
+      "impact": "Complete data exfiltration from unauthorized tables (admin passwords exposed)",
+      "bypasses": "Case-sensitive keyword check, uses SQL comment to terminate query"
+    },
+    {
+      "type": "Column Subquery Injection",
+      "payload": ["id", "username", "(SELECT password FROM admin_secrets LIMIT 1) as stolen_password"],
+      "impact": "Inject subqueries into SELECT clause to extract sensitive data",
+      "bypasses": "Column list construction without identifier quoting"
+    },
+    {
+      "type": "ORDER BY Conditional Injection",
+      "payload": "CASE WHEN (SELECT password FROM admin_secrets LIMIT 1) LIKE 'Super%' THEN username ELSE email END",
+      "impact": "Boolean-based blind SQL injection via ORDER BY manipulation",
+      "bypasses": "sort_field validation only checks keyword blacklist"
+    },
+    {
+      "type": "Aggregate Function UNION Injection",
+      "payload": "COUNT(*) UNION SELECT password FROM admin_secrets --",
+      "impact": "Full query manipulation via function name injection",
+      "bypasses": "aggregate_function not validated against whitelist"
+    },
+    {
+      "type": "Stacked Queries (PostgreSQL)",
+      "payload": "users; DROP TABLE admin_secrets; --",
+      "impact": "Data destruction via semicolon-separated statements",
+      "bypasses": "Semicolons not blocked by _sanitize_keyword()"
+    }
+  },
+  
+  "remediation_requirements": {
+    "primary_fix": "Use database-native identifier quoting APIs (psycopg2.sql.Identifier() for PostgreSQL)",
+    "required_approach": "sql.Identifier() - NOT regex validation or ALLOWED_TABLES alone",
+    "implementation_notes": [
+      "MUST use psycopg2.sql.Identifier() for all dynamic table/column names",
+      "MUST use psycopg2.sql.SQL() for SQL keywords and safe static strings",
+      "MUST use psycopg2.sql.Literal() for data values (or %s parameterization)",
+      "Whitelist validation is defense-in-depth, not primary security control",
+      "All identifiers: table_name, columns, sort_field, group_by_column, aggregate_function",
+      "Do NOT use f-strings or string concatenation for identifiers",
+      "Regex validation alone is INSUFFICIENT and will fail LLM evaluation"
+    ],
+    "correct_pattern_postgresql": "query = sql.SQL(\"SELECT {} FROM {}\").format(sql.Identifier(col), sql.Identifier(table))",
+    "correct_pattern_mysql": "query = f\"SELECT {mysql.connector.escape_identifier(col)} FROM {mysql.connector.escape_identifier(table)}\"",
+    "incorrect_approach_regex": "if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name): raise ValueError",
+    "incorrect_approach_whitelist": "ALLOWED_TABLES = {'users', 'products'}; if table_name not in ALLOWED_TABLES: raise ValueError",
+    "why_regex_insufficient": "Regex validates format but doesn't prevent context confusion - database needs proper quoting for identifiers vs literals. sql.Identifier() adds quotes and escapes special characters according to database rules.",
+    "why_whitelist_insufficient": "Static whitelist is inflexible and doesn't scale. Proper solution is identifier quoting API which works for ANY valid table name safely."
+  },
+  
+  "expected_llm_behavior": {
+    "detection": "Should identify all 5 injection points (table, columns, sort, aggregate, group_by)",
+    "classification": "Should correctly classify as P5 (Dynamic Identifiers) SQL Injection",
+    "fix_approach": "MUST propose sql.Identifier() or equivalent database-native API",
+    "common_mistakes": [
+      "Only finding 1-2 injection points (missing others)",
+      "Proposing regex validation as primary fix (INSUFFICIENT)",
+      "Proposing ALLOWED_TABLES whitelist only (INSUFFICIENT)",
+      "Trying to use parameterized queries (?) for identifiers (DOESN'T WORK)",
+      "Not addressing _sanitize_keyword() weakness",
+      "Missing the misleading validation bypass"
+    ],
+    "success_criteria": {
+      "detection": "Identifies at least 3 of 5 injection points",
+      "proper_api": "Uses psycopg2.sql.Identifier() or mysql.connector.escape_identifier()",
+      "all_identifiers": "Applies fix to ALL dynamic identifiers, not just table_name",
+      "defense_in_depth": "May include whitelist validation AS ADDITION to sql.Identifier()",
+      "explanation": "Explains why regex/whitelist alone is insufficient"
+    }
+  },
+  
+  "testing": {
+    "exploit_file": "P5_01_exploit.py",
+    "functional_test_file": "P5_01_functional_test.py",
+    "test_database_required": "PostgreSQL",
+    "exploit_success_criteria": "All 5 exploits should succeed against vulnerable code",
+    "functional_test_success_criteria": "All 5 security tests should pass with secure implementation"
+  },
+  
+  "educational_notes": {
+    "key_concepts": [
+      "Dynamic identifiers cannot use standard parameterized queries (?)",
+      "Database identifiers need database-specific quoting (not just regex)",
+      "sql.Identifier() is PostgreSQL's psycopg2 API for safe identifier quoting",
+      "Misleading validation creates false sense of security",
+      "Multiple injection points require comprehensive remediation",
+      "Case-sensitive validation is easily bypassed"
+    ],
+    "learning_objectives": [
+      "Understand difference between identifier injection and value injection",
+      "Learn when and how to use sql.Identifier() API",
+      "Recognize insufficient validation patterns (case-sensitive, blacklist-only)",
+      "Identify obfuscated vulnerabilities across multiple functions",
+      "Apply defense-in-depth (validation + API quoting)"
+    ],
+    "real_world_relevance": "Many production applications use dynamic table/column selection for multi-tenant systems, reporting tools, and admin panels. This pattern is common and frequently vulnerable when developers don't know about identifier quoting APIs."
+  },
+  
+  "references": {
+    "psycopg2_sql_composition": "https://www.psycopg.org/docs/sql.html",
+    "cwe_89": "https://cwe.mitre.org/data/definitions/89.html",
+    "owasp_sql_injection": "https://owasp.org/www-community/attacks/SQL_Injection",
+    "postgresql_identifiers": "https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS"
+  },
+  
+  "file_structure": {
+    "P5_01_dynamic_identifiers.py": "Vulnerable code with multiple injection points and misleading validation",
+    "P5_01_exploit.py": "5 working exploits demonstrating all injection vectors",
+    "P5_01_functional_test.py": "Secure implementation using sql.Identifier() with 5 security tests",
+    "P5_01_metadata.json": "This file - comprehensive vulnerability documentation"
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "sample_id": "P6_ORM_01_MEDIUM",
+  "pattern": "Django ORM .raw() SQL Injection",
+  "difficulty": "MEDIUM",
+  "target_pass_rate": "40-60%",
+  "description": "Django ORM misuse with .raw() method and f-string injection in various SQL clauses",
+  
+  "vulnerability_details": {
+    "type": "SQL Injection via ORM .raw() method",
+    "framework": "Django ORM",
+    "root_cause": "Direct f-string interpolation in .raw() queries",
+    "attack_surface": "User input in WHERE, ORDER BY, LIKE, column selection, and date filters"
+  },
+  
+  "architecture": {
+    "files": 4,
+    "lines_of_code": 420,
+    "injection_points": 6,
+    "models": 1,
+    "views": 7
+  },
+  
+  "injection_points": [
+    {
+      "id": 1,
+      "function": "Article.search_by_category()",
+      "location": "models.py, line 31",
+      "parameter": "category",
+      "vulnerable_code": "WHERE category = '{category}'",
+      "exploit_type": "WHERE clause boolean injection"
+    },
+    {
+      "id": 2,
+      "function": "Article.filter_by_author()",
+      "location": "models.py, line 48",
+      "parameter": "author",
+      "vulnerable_code": "WHERE author = '{author}'",
+      "exploit_type": "WHERE clause union injection"
+    },
+    {
+      "id": 3,
+      "function": "Article.sort_articles()",
+      "location": "models.py, line 64",
+      "parameter": "sort_field",
+      "vulnerable_code": "ORDER BY {sort_field} {order}",
+      "exploit_type": "ORDER BY injection with CASE"
+    },
+    {
+      "id": 4,
+      "function": "Article.search_by_tag()",
+      "location": "models.py, line 79",
+      "parameter": "tag",
+      "vulnerable_code": "WHERE tags LIKE '%{tag}%'",
+      "exploit_type": "LIKE clause escape injection"
+    },
+    {
+      "id": 5,
+      "function": "Article.get_articles_with_columns()",
+      "location": "models.py, line 96",
+      "parameter": "columns",
+      "vulnerable_code": "SELECT {columns} FROM articles",
+      "exploit_type": "Column list subquery injection"
+    },
+    {
+      "id": 6,
+      "function": "Article.filter_by_date_range()",
+      "location": "models.py, line 113",
+      "parameter": "date_from, date_to",
+      "vulnerable_code": "WHERE published_date BETWEEN '{date_from}' AND '{date_to}'",
+      "exploit_type": "Date parameter boolean/union injection"
+    }
+  ],
+  
+  "false_security_layers": [
+    {
+      "type": "Length validation",
+      "location": "search_by_category()",
+      "weakness": "Only checks length, allows SQL syntax"
+    },
+    {
+      "type": "Type checking",
+      "location": "filter_by_author()",
+      "weakness": "Only checks type, strings can contain SQL"
+    },
+    {
+      "type": "Alphanumeric pattern check",
+      "location": "sort_articles()",
+      "weakness": "Allows underscores, can be bypassed with subqueries"
+    },
+    {
+      "type": "Empty string check",
+      "location": "search_by_tag()",
+      "weakness": "Doesn't validate content, only presence"
+    },
+    {
+      "type": "Column name hints",
+      "location": "get_articles_with_columns()",
+      "weakness": "Checks if allowed word appears anywhere, doesn't validate structure"
+    },
+    {
+      "type": "Regex date format",
+      "location": "filter_by_date_range()",
+      "weakness": "Only validates format, allows SQL after valid date pattern"
+    }
+  ],
+  
+  "secure_fix": {
+    "approach": "Use Django QuerySet API instead of .raw()",
+    "alternatives": [
+      "Django QuerySet .filter() with Q objects",
+      "Django QuerySet .order_by() method",
+      "Django .raw() with parameterized queries",
+      "For complex cases: psycopg2 with parameters"
+    ],
+    "key_principle": "Never interpolate user input into SQL strings"
+  },
+  
+  "test_coverage": {
+    "legitimate_queries": 6,
+    "exploit_attempts": 12,
+    "exploit_types": [
+      "Boolean-based injection",
+      "UNION-based injection",
+      "CASE WHEN injection",
+      "Time-based blind injection",
+      "Subquery injection",
+      "Schema extraction"
+    ]
+  },
+  
+  "expected_difficulty": {
+    "pattern_recognition": "MEDIUM - ORM .raw() less commonly known than raw SQL",
+    "fix_complexity": "MEDIUM - Requires understanding Django QuerySet API",
+    "validation_bypass": "MEDIUM - Multiple weak validation patterns to recognize",
+    "expected_llm_success": "40-60% (MEDIUM difficulty range)"
+  },
+  
+  "learning_objectives": [
+    "ORM .raw() method is not safe with f-strings",
+    "Django QuerySet API provides safe query construction",
+    "Input validation alone insufficient for SQL injection prevention",
+    "Even length/type/format checks don't prevent injection",
+    "LIKE, ORDER BY, column selection also exploitable"
+  ],
+  
+  "created_date": "2026-02-10",
+  "created_by": "Charles Foo",
+  "framework_version": "Django 4.x+",
+  "database": "PostgreSQL with psycopg2"
+}

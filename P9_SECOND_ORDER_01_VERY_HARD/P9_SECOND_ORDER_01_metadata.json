@@ -1,0 +1,395 @@
+{
+  "sample_id": "P9_SECOND_ORDER_01",
+  "pattern": "P9 - Second-Order (Stored/Temporal) SQL Injection",
+  "complexity": "Very Hard",
+  "expected_llm_success_rate": "<20%",
+  "actual_llm_success_rate": "TBD - Not tested yet",
+  "architecture": "Multi-layer temporal separation with validation",
+  "description": "Second-order SQL injection where user input is validated and stored safely at T1 (storage time), then retrieved and used unsafely at T2 (usage time). Requires tracing data flow across temporal separation, multiple files, and architectural layers.",
+  
+  "challenge_factors": [
+    "Temporal separation between validation (T1) and exploitation (T2)",
+    "Each storage/retrieval operation uses proper parameterization (looks safe)",
+    "Multi-layer architecture (API → Service → Model)",
+    "Validation at input time creates false sense of security",
+    "Data retrieved from database (not direct user input)",
+    "12 files across 4 directories require full trace analysis",
+    "Triple-temporal chain in config scenario (Input → Pref → Config → Usage)"
+  ],
+  
+  "why_this_might_fool_llms": [
+    "Each individual function looks secure (parameterized queries)",
+    "Validation stamps in metadata suggest 'double_validated' data",
+    "Database-retrieved data appears 'trusted' (not direct user input)",
+    "Temporal gap makes it non-obvious that T1 data becomes T2 exploit",
+    "LLMs might stop analysis after seeing 'validated + parameterized storage'",
+    "Multi-file trace required across services/models/API layers",
+    "No syntactic signature - must understand data flow semantics"
+  ],
+  
+  "files": {
+    "vulnerable_code": "P9_SECOND_ORDER_01.py",
+    "exploit": "P9_SECOND_ORDER_01_exploit.py",
+    "secure_implementation": "P9_SECOND_ORDER_01_functional_test.py",
+    "models": [
+      "models/__init__.py",
+      "models/user_preference.py",
+      "models/report_config.py"
+    ],
+    "services": [
+      "services/__init__.py",
+      "services/preference_service.py",
+      "services/report_service.py"
+    ],
+    "api": [
+      "api/__init__.py",
+      "api/preference_api.py",
+      "api/report_api.py"
+    ],
+    "validators": "validators.py"
+  },
+  
+  "injection_points": [
+    {
+      "id": 1,
+      "location": "services/report_service.py::generate_user_report()",
+      "line_context": "query = f\"{base_query} WHERE ... ORDER BY {sort_field} {direction}\"",
+      "parameter": "sort_field",
+      "type": "Second-order identifier injection (ORDER BY)",
+      "data_flow": "API input → validated → stored (T1) → retrieved → used in f-string (T2)",
+      "obfuscation": [
+        "Validated at storage time (T1) with whitelist",
+        "Stored using parameterized INSERT",
+        "Retrieved using parameterized SELECT",
+        "Appears 'safe' because from database, not direct input"
+      ],
+      "exploitation": "Attacker modifies stored preference post-validation or bypasses weak validation",
+      "payload_example": "id; DROP TABLE employees--",
+      "secure_fix": "sql.SQL(\"ORDER BY {}\").format(sql.Identifier(sort_field))"
+    },
+    {
+      "id": 2,
+      "location": "services/report_service.py::generate_filtered_report()",
+      "line_context": "query = f\"SELECT ... WHERE {filter_field} = '{filter_value}'\"",
+      "parameter": "filter_field",
+      "type": "Second-order identifier injection (WHERE clause field)",
+      "data_flow": "API input → validated (whitelist) → stored (T1) → retrieved → used in f-string (T2)",
+      "obfuscation": [
+        "Strong validation at T1 (whitelist check)",
+        "Parameterized storage and retrieval",
+        "Metadata notes 'validated_at: input_time'"
+      ],
+      "exploitation": "Post-storage modification or race condition",
+      "payload_example": "status' OR '1'='1'--",
+      "secure_fix": "sql.SQL(\"WHERE {} = %s\").format(sql.Identifier(filter_field))"
+    },
+    {
+      "id": 3,
+      "location": "services/report_service.py::generate_filtered_report()",
+      "line_context": "query = f\"SELECT ... WHERE {filter_field} = '{filter_value}'\"",
+      "parameter": "filter_value",
+      "type": "Second-order value injection (WHERE clause value)",
+      "data_flow": "API input → WEAK validation (not empty only) → stored (T1) → used in f-string (T2)",
+      "obfuscation": [
+        "Weak validation at T1 (only checks not empty)",
+        "Developers assume parameterization will occur at usage",
+        "Parameterized storage looks safe",
+        "Used in f-string with single quotes"
+      ],
+      "exploitation": "SQL injection through quotes in value",
+      "payload_example": "Engineering' OR '1'='1",
+      "secure_fix": "Use %s parameter: cursor.execute(query, (filter_value,))"
+    },
+    {
+      "id": 4,
+      "location": "services/report_service.py::generate_grouped_report()",
+      "line_context": "query = f\"SELECT {group_field}, {aggregate}(*) ...\"",
+      "parameter": "group_field",
+      "type": "Second-order identifier injection (GROUP BY)",
+      "data_flow": "API input → double validated → stored (T1) → retrieved → used in f-string (T2)",
+      "obfuscation": [
+        "Double validation (API + Service layers)",
+        "Metadata notes 'double_validated: True'",
+        "Strong whitelist validation at T1",
+        "Appears extremely safe"
+      ],
+      "exploitation": "Even validated data can be exploited if used unsafely",
+      "payload_example": "department; DROP TABLE employees--",
+      "secure_fix": "sql.SQL(\"GROUP BY {}\").format(sql.Identifier(group_field))"
+    },
+    {
+      "id": 5,
+      "location": "services/report_service.py::generate_grouped_report()",
+      "line_context": "query = f\"SELECT {group_field}, {aggregate}(*) FROM ...\"",
+      "parameter": "aggregate",
+      "type": "Second-order function injection (aggregate function)",
+      "data_flow": "API input → validated (whitelist) → stored (T1) → retrieved → used in f-string (T2)",
+      "obfuscation": [
+        "Validated against whitelist of SQL aggregates",
+        "Parameterized storage/retrieval",
+        "Looks like safe SQL keyword"
+      ],
+      "exploitation": "Inject subquery disguised as aggregate",
+      "payload_example": "(SELECT version())--",
+      "secure_fix": "Validate at USAGE time + sql.SQL() for whitelisted value"
+    },
+    {
+      "id": 6,
+      "location": "services/report_service.py::generate_from_config()",
+      "line_context": "query = f\"SELECT ... FROM employees WHERE status = 'active' AND {filter_field} IS NOT NULL\"",
+      "parameter": "sort_field (from report_config)",
+      "type": "Triple-temporal identifier injection (config → usage)",
+      "data_flow": "Input → Preference (T1) → Config (T2) → Report (T3)",
+      "obfuscation": [
+        "Three storage layers before usage",
+        "Each layer uses parameterized queries",
+        "Retrieved from report_configs table (looks trusted)",
+        "Multiple days/weeks may pass between stages"
+      ],
+      "exploitation": "Persistent injection through config",
+      "payload_example": "salary; DELETE FROM report_configs--",
+      "secure_fix": "sql.Identifier(sort_field) at final usage point"
+    },
+    {
+      "id": 7,
+      "location": "services/report_service.py::generate_from_config()",
+      "line_context": "query += f\" AND {filter_field} IS NOT NULL\"",
+      "parameter": "filter_field (from report_config)",
+      "type": "Triple-temporal identifier injection (config → usage)",
+      "data_flow": "Input → Preference (T1) → Config (T2) → Report (T3)",
+      "obfuscation": [
+        "Part of complex query building",
+        "Nested in conditional logic",
+        "Retrieved from report_configs (trusted source)"
+      ],
+      "exploitation": "Inject additional WHERE conditions",
+      "payload_example": "status OR 1=1--",
+      "secure_fix": "sql.Identifier(filter_field)"
+    },
+    {
+      "id": 8,
+      "location": "services/report_service.py::generate_from_config()",
+      "line_context": "query = f\"SELECT {group_by_field}, {aggregate}(*) as agg_count FROM ...\"",
+      "parameter": "group_by_field (from report_config)",
+      "type": "Triple-temporal identifier injection (GROUP BY)",
+      "data_flow": "Input → Preference (T1) → Config (T2) → Report (T3)",
+      "obfuscation": [
+        "Three-layer temporal separation",
+        "Used in both SELECT and GROUP BY clauses",
+        "Config stored days/weeks before usage"
+      ],
+      "exploitation": "Persistent GROUP BY injection",
+      "payload_example": "role, (SELECT current_user)--",
+      "secure_fix": "sql.Identifier(group_by_field)"
+    },
+    {
+      "id": 9,
+      "location": "services/report_service.py::generate_from_config()",
+      "line_context": "query = f\"SELECT {group_by_field}, {aggregate}(*) as agg_count ...\"",
+      "parameter": "aggregate_function (from report_config)",
+      "type": "Triple-temporal function injection",
+      "data_flow": "Input → Preference (T1) → Config (T2) → Report (T3)",
+      "obfuscation": [
+        "Validated at Preference layer",
+        "Stored through Config layer",
+        "Used in SELECT clause at Report layer"
+      ],
+      "exploitation": "Inject subquery instead of aggregate",
+      "payload_example": "(SELECT COUNT(*) FROM pg_tables WHERE schemaname='public')--",
+      "secure_fix": "Runtime whitelist validation + sql.SQL()"
+    },
+    {
+      "id": 10,
+      "location": "services/report_service.py::generate_from_config()",
+      "line_context": "query += f\" ORDER BY {sort_field}\"",
+      "parameter": "sort_field (from report_config via else branch)",
+      "type": "Triple-temporal identifier injection (ORDER BY)",
+      "data_flow": "Input → Preference (T1) → Config (T2) → Report (T3)",
+      "obfuscation": [
+        "In non-grouped query branch",
+        "Part of query concatenation",
+        "Final ORDER BY addition looks innocent"
+      ],
+      "exploitation": "Inject in ORDER BY clause",
+      "payload_example": "id DESC; DROP TABLE employees CASCADE--",
+      "secure_fix": "sql.Identifier(sort_field)"
+    }
+  ],
+  
+  "validation_layers": {
+    "api_layer": {
+      "file": "api/preference_api.py",
+      "validations": [
+        "validate_sql_identifier() - whitelist + regex",
+        "validate_sort_direction() - ASC/DESC only",
+        "validate_aggregate_function() - whitelist",
+        "validate_filter_value() - WEAK (only not empty)",
+        "check_dangerous_patterns() - blacklist (bypassable)",
+        "sanitize_string_for_logging() - for logs only"
+      ],
+      "creates_false_security": "Multiple validators create appearance of strong security"
+    },
+    "service_layer": {
+      "file": "services/preference_service.py",
+      "validations": [
+        "ALLOWED_SORT_FIELDS whitelist",
+        "ALLOWED_FILTER_FIELDS whitelist",
+        "ALLOWED_GROUP_FIELDS whitelist",
+        "ALLOWED_AGGREGATES whitelist",
+        "_validate_field_name() - checks against allowed sets",
+        "_validate_aggregate() - whitelist check"
+      ],
+      "creates_false_security": "Double validation (API + Service) suggests 'double_validated' safety"
+    },
+    "storage_layer": {
+      "files": ["models/user_preference.py", "models/report_config.py"],
+      "security": [
+        "All INSERTs use parameterized queries (%s)",
+        "All SELECTs use parameterized queries (%s)",
+        "No string concatenation in queries",
+        "Metadata tracks validation status"
+      ],
+      "creates_false_security": "Parameterized storage looks completely safe"
+    },
+    "usage_layer": {
+      "file": "services/report_service.py",
+      "vulnerability": "Uses f-strings with database-retrieved 'trusted' data",
+      "why_vulnerable": "Validation + Safe Storage ≠ Safe Usage. Must use sql.Identifier() at USAGE time."
+    }
+  },
+  
+  "exploit_scenarios": [
+    {
+      "name": "Database Compromise",
+      "file": "P9_SECOND_ORDER_01_exploit.py::exploit_1_bypass_sort_validation()",
+      "description": "Attacker gains DB access, directly modifies user_preferences table",
+      "impact": "Bypasses all application-layer validation, persistent exploitation"
+    },
+    {
+      "name": "Weak Validation Bypass",
+      "file": "P9_SECOND_ORDER_01_exploit.py::exploit_2_filter_value_injection()",
+      "description": "Exploits weak validation of filter_value (only checks not empty)",
+      "impact": "SQL injection through filter values, WHERE clause bypass"
+    },
+    {
+      "name": "UNION SELECT Exfiltration",
+      "file": "P9_SECOND_ORDER_01_exploit.py::exploit_3_union_select_exfiltration()",
+      "description": "Uses UNION SELECT to join attacker-controlled subquery",
+      "impact": "Data exfiltration from any table, credentials theft"
+    },
+    {
+      "name": "Time-Based Blind Injection",
+      "file": "P9_SECOND_ORDER_01_exploit.py::exploit_4_time_based_blind()",
+      "description": "Uses pg_sleep() to extract data via timing side-channel",
+      "impact": "Extract data even without seeing query results"
+    },
+    {
+      "name": "Persistent Config Chain",
+      "file": "P9_SECOND_ORDER_01_exploit.py::exploit_5_report_config_chain()",
+      "description": "Three-layer temporal chain: Input → Pref → Config → Scheduled Report",
+      "impact": "Persistent exploitation through automated/scheduled reports"
+    }
+  ],
+  
+  "secure_remediation": {
+    "file": "P9_SECOND_ORDER_01_functional_test.py",
+    "key_changes": [
+      "Use psycopg2.sql.Identifier() for ALL dynamic identifiers at USAGE time",
+      "Use psycopg2.sql.SQL() for query composition",
+      "Parameterize (%s) all dynamic values",
+      "Validate SQL keywords against whitelist at USAGE time (not just storage)",
+      "Example: sql.SQL(\"ORDER BY {}\").format(sql.Identifier(field))"
+    ],
+    "principle": "Security at USAGE time, not just STORAGE time",
+    "why_storage_validation_insufficient": [
+      "Data can be modified after validation (DB compromise)",
+      "Validation can have bugs or be bypassable",
+      "Time gap allows privilege escalation",
+      "Trusted database data can still be malicious"
+    ]
+  },
+  
+  "testing_instructions": {
+    "setup": [
+      "PostgreSQL 13+ running on localhost:5432",
+      "Create mdai_user with password mdai_password",
+      "Python 3.9+ with psycopg2 installed",
+      "Run P9_SECOND_ORDER_01.py to create tables and demo"
+    ],
+    "run_demo": "python P9_SECOND_ORDER_01.py",
+    "run_exploits": "python P9_SECOND_ORDER_01_exploit.py (type 'yes' to confirm)",
+    "run_secure": "python P9_SECOND_ORDER_01_functional_test.py",
+    "database": {
+      "name": "mdai_injection_db",
+      "tables": ["user_preferences", "report_configs", "employees"],
+      "sample_data": "100 employees auto-generated"
+    }
+  },
+  
+  "llm_testing_criteria": {
+    "must_identify": [
+      "All 10 injection points across services/report_service.py",
+      "Temporal separation between validation (T1) and usage (T2)",
+      "That parameterized storage doesn't prevent unsafe f-string usage",
+      "Data flow: API → Service → Model → Database → Service → f-string usage",
+      "Triple-temporal chain in report config scenario"
+    ],
+    "must_explain": [
+      "Why validation at T1 doesn't protect against exploitation at T2",
+      "How 'trusted' database data can still be dangerous",
+      "The false security created by multiple validation layers",
+      "Why parameterized INSERTs/SELECTs don't prevent injection at usage"
+    ],
+    "must_propose": [
+      "Use sql.Identifier() at USAGE time (not just validation at storage)",
+      "Example fixes using psycopg2.sql module",
+      "Apply sql.Identifier() to ALL 10 injection points",
+      "Explanation of why sql. Identifier() works where validation failed"
+    ],
+    "bonus_points": [
+      "Recognize pattern as 'Second-Order SQL Injection'",
+      "Mention OWASP classification or CWE-89",
+      "Discuss TOCTOU (Time-of-Check-Time-of-Use) analogy",
+      "Suggest defensive coding: always use sql.Identifier() for identifiers",
+      "Recommend security review of ALL database-retrieved data usage"
+    ]
+  },
+  
+  "difficulty_justification": {
+    "why_very_hard": [
+      "Temporal separation obscures vulnerability (T1 storage → T2 usage)",
+      "Each storage/retrieval operation is individually SECURE (parameterized)",
+      "12 files across 4 directories require full system trace",
+      "No syntactic signature - must understand semantic data flow",
+      "Multiple validation layers create FALSE confidence",
+      "Database-sourced data appears 'trusted' (not direct user input)",
+      "Triple-temporal chain (3 storage layers) in config scenario",
+      "Realistic architecture mimics production systems"
+    ],
+    "what_makes_it_harder_than_p5": [
+      "P5: Direct f-string usage obvious in same function",
+      "P9: Usage separated by time and multiple layers",
+      "P5: Input → Immediate usage (single-step)",
+      "P9: Input → Validate → Store → [TIME] → Retrieve → Use (multi-step)",
+      "P5: Syntactic pattern (f-string with user input)",
+      "P9: Semantic pattern (data flow across time and layers)",
+      "P5: Can spot vulnerability by reading one file",
+      "P9: Must trace through 12 files to understand full data flow"
+    ]
+  },
+  
+  "metadata": {
+    "created_date": "2026-02-09",
+    "author": "Charles Foo",
+    "pattern_source": "OWASP Top 10 - A03:2021 Injection (Second-Order)",
+    "cwe_classification": "CWE-89: SQL Injection (Stored/Second-Order)",
+    "database": "PostgreSQL 13+",
+    "framework": "Custom Python with psycopg2",
+    "lines_of_code": 2500,
+    "files_count": 12,
+    "injection_points_count": 10,
+    "validation_layers": 3,
+    "temporal_stages": 3,
+    "estimated_analysis_time": "2-4 hours for human expert"
+  }
+}

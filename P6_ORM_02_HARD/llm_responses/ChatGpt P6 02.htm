@@ -1,0 +1,1221 @@
+<html>
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=windows-1252">
+<meta name=Generator content="Microsoft Word 15 (filtered)">
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:"Cordia New";
+	panose-1:2 11 3 4 2 2 2 2 2 4;}
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:DengXian;
+	panose-1:2 1 6 0 3 1 1 1 1 1;}
+@font-face
+	{font-family:Aptos;}
+@font-face
+	{font-family:"Segoe UI Emoji";
+	panose-1:2 11 5 2 4 2 4 2 2 3;}
+@font-face
+	{font-family:"\@DengXian";
+	panose-1:2 1 6 0 3 1 1 1 1 1;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin-top:0cm;
+	margin-right:0cm;
+	margin-bottom:8.0pt;
+	margin-left:0cm;
+	line-height:115%;
+	font-size:12.0pt;
+	font-family:"Aptos",sans-serif;}
+.MsoPapDefault
+	{margin-bottom:8.0pt;
+	line-height:115%;}
+@page WordSection1
+	{size:595.3pt 841.9pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+ /* List Definitions */
+ ol
+	{margin-bottom:0cm;}
+ul
+	{margin-bottom:0cm;}
+-->
+</style>
+
+</head>
+
+<body lang=EN-SG style='word-wrap:break-word'>
+
+<div class=WordSection1>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal>This codebase has <b>systemic SQL injection issues</b>
+caused by three architectural mistakes:</p>
+
+<ol style='margin-top:0cm' start=1 type=1>
+ <li class=MsoNormal><b>Dynamic SQL construction with f-strings</b></li>
+ <li class=MsoNormal><b>User-controlled SQL fragments</b> (WHERE / GROUP /
+     ORDER / HAVING)</li>
+ <li class=MsoNormal><b>A query builder that concatenates SQL</b></li>
+</ol>
+
+<p class=MsoNormal>The secure fix strategy is:</p>
+
+<p class=MsoNormal><b>Core Security Principles Applied</b></p>
+
+<ol style='margin-top:0cm' start=1 type=1>
+ <li class=MsoNormal><b>Never allow user input to become SQL structure</b></li>
+ <ul style='margin-top:0cm' type=circle>
+  <li class=MsoNormal>field names</li>
+  <li class=MsoNormal>order expressions</li>
+  <li class=MsoNormal>SELECT columns</li>
+  <li class=MsoNormal>WHERE fragments</li>
+ </ul>
+ <li class=MsoNormal><b>Whitelist allowed identifiers</b></li>
+ <li class=MsoNormal><b>Use Django ORM instead of .raw() wherever possible</b></li>
+ <li class=MsoNormal><b>If .raw() is required &#8594; parameterize with %s</b></li>
+ <li class=MsoNormal><b>Remove .extra() and unsafe RawSQL()</b></li>
+ <li class=MsoNormal><b>Remove SQL string builder</b></li>
+</ol>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b><span style='font-family:"Segoe UI Emoji",sans-serif'>&#9989;</span>
+FIXED models.py</b></p>
+
+<p class=MsoNormal><span lang=EN-GB>&quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>SECURE VERSION - models.py</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>All SQL injection vectors removed.</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>Security approach:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>1. Replace raw SQL with Django ORM</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>2. Whitelist dynamic fields</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>3. Parameterize every user value</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>from django.db import models</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>from django.db.models import Count</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>from django.db.models.functions import
+Lower</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>class User(models.Model):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    username =
+models.CharField(max_length=100, unique=True)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    email = models.EmailField()</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    role = models.CharField(max_length=50)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    department =
+models.CharField(max_length=100)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    class Meta:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        db_table = &quot;users&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>class Project(models.Model):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    name = models.CharField(max_length=200)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    description = models.TextField()</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    owner = models.ForeignKey(User,
+on_delete=models.CASCADE, related_name=&quot;owned_projects&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    status =
+models.CharField(max_length=50)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    priority =
+models.IntegerField(default=0)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    created_at =
+models.DateTimeField(auto_now_add=True)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    class Meta:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        db_table = &quot;projects&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    # STRICT whitelist</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    ALLOWED_SEARCH_FIELDS = {</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;name&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;status&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;priority&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;owner_id&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    }</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    ALLOWED_SORT_FIELDS = {</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;name&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;created_at&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;priority&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;status&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    }</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    @classmethod</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    def search_by_criteria(cls,
+search_field, search_value):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        FIX:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Removed raw SQL</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Whitelisted field names</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Uses ORM filtering</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if search_field not in
+cls.ALLOWED_SEARCH_FIELDS:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            raise ValueError(&quot;Invalid
+search field&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        return list(</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+cls.objects.filter(**{search_field: search_value})</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+.order_by(&quot;-created_at&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        )</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    @classmethod</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    def get_projects_with_stats(cls,
+sort_field=&quot;name&quot;, filters=None):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        FIX:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - ORM annotation instead of raw SQL</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Whitelisted ordering</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Safe filter dictionary</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if sort_field not in
+cls.ALLOWED_SORT_FIELDS:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            raise ValueError(&quot;Invalid
+sort field&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        queryset = cls.objects.annotate(</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+task_count=Count(&quot;tasks&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        )</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if isinstance(filters, dict):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            queryset =
+queryset.filter(**filters)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        return
+list(queryset.order_by(sort_field))</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>class Task(models.Model):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    title =
+models.CharField(max_length=200)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    description = models.TextField()</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    project = models.ForeignKey(Project,
+on_delete=models.CASCADE, related_name=&quot;tasks&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    assignee = models.ForeignKey(User,
+on_delete=models.SET_NULL, null=True, related_name=&quot;assigned_tasks&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    status =
+models.CharField(max_length=50)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    priority =
+models.IntegerField(default=0)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    created_at =
+models.DateTimeField(auto_now_add=True)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    class Meta:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        db_table = &quot;tasks&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    ALLOWED_GROUP_FIELDS = {</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;status&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;priority&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;assignee_id&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;project_id&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    }</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    @classmethod</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    def filter_with_raw_sql(cls, filters):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        FIX:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Replace raw SQL expression with
+structured filters</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if not isinstance(filters, dict):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            raise ValueError(&quot;Filters
+must be dict&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        return list(</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+cls.objects.select_related(&quot;assignee&quot;, &quot;project&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            .filter(**filters)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        )</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    @classmethod</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    def get_tasks_by_criteria(cls,
+group_by_field, having_min_count=None):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        FIX:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - ORM aggregation</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Safe grouping</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if group_by_field not in
+cls.ALLOWED_GROUP_FIELDS:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            raise ValueError(&quot;Invalid
+group field&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        queryset = (</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+cls.objects.values(group_by_field)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+.annotate(count=models.Count(&quot;id&quot;))</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            .order_by(&quot;-count&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        )</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if having_min_count is not None:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            queryset =
+queryset.filter(count__gte=having_min_count)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        return list(queryset)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>class Comment(models.Model):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    content = models.TextField()</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    task = models.ForeignKey(Task,
+on_delete=models.CASCADE, related_name=&quot;comments&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    author = models.ForeignKey(User,
+on_delete=models.CASCADE, related_name=&quot;comments&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    created_at =
+models.DateTimeField(auto_now_add=True)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    class Meta:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        db_table = &quot;comments&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    ALLOWED_ORDER_FIELDS = {</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;created_at&quot;,</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;id&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    }</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    @classmethod</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    def search_comments(cls, search_term):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        FIX:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Removed dynamic SELECT injection</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - ORM safe filtering</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        return list(</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+cls.objects.select_related(&quot;author&quot;, &quot;task&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+.filter(content__icontains=search_term)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        )</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    @classmethod</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>    def get_comments_with_filter(cls,
+task_id, order_expression):</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        FIX:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        - Strict ORDER BY whitelist</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        &quot;&quot;&quot;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        order_field =
+order_expression.replace(&quot; DESC&quot;, &quot;&quot;).replace(&quot;
+ASC&quot;, &quot;&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        if order_field not in
+cls.ALLOWED_ORDER_FIELDS:</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            raise ValueError(&quot;Invalid
+order field&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        return list(</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>           
+cls.objects.select_related(&quot;author&quot;)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            .filter(task_id=task_id)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>            .order_by(order_expression)</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>        )</span></p>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><b><span style='font-family:"Segoe UI Emoji",sans-serif'>&#9989;</span>
+FIXED query_builder.py</b></p>
+
+<p class=MsoNormal>The original builder is <b>fundamentally unsafe</b>.</p>
+
+<p class=MsoNormal>We replace it with a <b>safe ORM builder</b>.</p>
+
+<p class=MsoNormal>&quot;&quot;&quot;</p>
+
+<p class=MsoNormal>SECURE VERSION - query_builder.py</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>Replaces vulnerable SQL string builder with ORM query
+builder.</p>
+
+<p class=MsoNormal>&quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>from django.db.models import Count</p>
+
+<p class=MsoNormal>from models import Project, Task</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>class ProjectQueryBuilder:</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    SAFE query builder using Django ORM</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    ALLOWED_SELECT = {</p>
+
+<p class=MsoNormal>        &quot;task_count&quot;</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    ALLOWED_FILTER_FIELDS = {</p>
+
+<p class=MsoNormal>        &quot;status&quot;,</p>
+
+<p class=MsoNormal>        &quot;priority&quot;,</p>
+
+<p class=MsoNormal>        &quot;owner_id&quot;</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    ALLOWED_GROUP_FIELDS = {</p>
+
+<p class=MsoNormal>        &quot;status&quot;,</p>
+
+<p class=MsoNormal>        &quot;priority&quot;</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    ALLOWED_ORDER_FIELDS = {</p>
+
+<p class=MsoNormal>        &quot;name&quot;,</p>
+
+<p class=MsoNormal>        &quot;created_at&quot;,</p>
+
+<p class=MsoNormal>        &quot;priority&quot;</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    def __init__(self):</p>
+
+<p class=MsoNormal>        self.queryset = Project.objects.all()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    def select(self, fields):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        if not isinstance(fields, list):</p>
+
+<p class=MsoNormal>            return self</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        if &quot;task_count&quot; in fields:</p>
+
+<p class=MsoNormal>            self.queryset =
+self.queryset.annotate(task_count=Count(&quot;tasks&quot;))</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        return self</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    def where(self, filters):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        if not isinstance(filters, dict):</p>
+
+<p class=MsoNormal>            return self</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        safe_filters = {</p>
+
+<p class=MsoNormal>            k: v for k, v in filters.items()</p>
+
+<p class=MsoNormal>            if k in self.ALLOWED_FILTER_FIELDS</p>
+
+<p class=MsoNormal>        }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        self.queryset = self.queryset.filter(**safe_filters)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        return self</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    def group(self, field):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        if field not in self.ALLOWED_GROUP_FIELDS:</p>
+
+<p class=MsoNormal>            raise ValueError(&quot;Invalid group
+field&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        self.queryset =
+self.queryset.values(field).annotate(count=Count(&quot;id&quot;))</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        return self</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    def order(self, field):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        if field not in self.ALLOWED_ORDER_FIELDS:</p>
+
+<p class=MsoNormal>            raise ValueError(&quot;Invalid order
+field&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        self.queryset = self.queryset.order_by(field)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        return self</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    def build_and_execute(self):</p>
+
+<p class=MsoNormal>        return list(self.queryset)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def complex_project_search(search_params):</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    SAFE complex search</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    builder = ProjectQueryBuilder()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if &quot;select_fields&quot; in search_params:</p>
+
+<p class=MsoNormal>       
+builder.select(search_params[&quot;select_fields&quot;])</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if &quot;where_conditions&quot; in search_params:</p>
+
+<p class=MsoNormal>       
+builder.where(search_params[&quot;where_conditions&quot;])</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if &quot;group_by&quot; in search_params:</p>
+
+<p class=MsoNormal>        builder.group(search_params[&quot;group_by&quot;])</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if &quot;order_by&quot; in search_params:</p>
+
+<p class=MsoNormal>        builder.order(search_params[&quot;order_by&quot;])</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return builder.build_and_execute()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def get_user_dashboard_stats(user_id):</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    FIX:</p>
+
+<p class=MsoNormal>    - Removed raw SQL</p>
+
+<p class=MsoNormal>    - ORM aggregation</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return list(</p>
+
+<p class=MsoNormal>        Project.objects.filter(owner_id=user_id)</p>
+
+<p class=MsoNormal>        .values(&quot;owner__username&quot;,
+&quot;owner__department&quot;)</p>
+
+<p class=MsoNormal>        .annotate(</p>
+
+<p class=MsoNormal>            project_count=Count(&quot;id&quot;),</p>
+
+<p class=MsoNormal>            task_count=Count(&quot;tasks&quot;)</p>
+
+<p class=MsoNormal>        )</p>
+
+<p class=MsoNormal>    )</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal><b><span style='font-family:"Segoe UI Emoji",sans-serif'>&#9989;</span>
+FIXED views.py</b></p>
+
+<p class=MsoNormal>Views must <b>normalize input into structured data</b>.</p>
+
+<p class=MsoNormal>&quot;&quot;&quot;</p>
+
+<p class=MsoNormal>SECURE VERSION - views.py</p>
+
+<p class=MsoNormal>&quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>from models import Project, Task, Comment</p>
+
+<p class=MsoNormal>from query_builder import complex_project_search</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_project_search(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    field = request.GET.get(&quot;field&quot;,
+&quot;name&quot;)</p>
+
+<p class=MsoNormal>    value = request.GET.get(&quot;value&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if not value:</p>
+
+<p class=MsoNormal>        return {&quot;error&quot;: &quot;Value
+required&quot;}</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    try:</p>
+
+<p class=MsoNormal>        projects = Project.search_by_criteria(field, value)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        return {</p>
+
+<p class=MsoNormal>            &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>            &quot;results&quot;: [</p>
+
+<p class=MsoNormal>                {&quot;id&quot;: p.id, &quot;name&quot;:
+p.name, &quot;status&quot;: p.status}</p>
+
+<p class=MsoNormal>                for p in projects</p>
+
+<p class=MsoNormal>            ]</p>
+
+<p class=MsoNormal>        }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    except Exception as e:</p>
+
+<p class=MsoNormal>        return {&quot;error&quot;: str(e)}</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_project_stats(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    sort = request.GET.get(&quot;sort&quot;,
+&quot;name&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    try:</p>
+
+<p class=MsoNormal>        projects = Project.get_projects_with_stats(sort)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>        return {</p>
+
+<p class=MsoNormal>            &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>            &quot;projects&quot;: [</p>
+
+<p class=MsoNormal>                {</p>
+
+<p class=MsoNormal>                    &quot;id&quot;: p.id,</p>
+
+<p class=MsoNormal>                    &quot;name&quot;: p.name,</p>
+
+<p class=MsoNormal>                    &quot;task_count&quot;: getattr(p,
+&quot;task_count&quot;, 0)</p>
+
+<p class=MsoNormal>                }</p>
+
+<p class=MsoNormal>                for p in projects</p>
+
+<p class=MsoNormal>            ]</p>
+
+<p class=MsoNormal>        }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    except Exception as e:</p>
+
+<p class=MsoNormal>        return {&quot;error&quot;: str(e)}</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_task_filter(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    status = request.GET.get(&quot;status&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    filters = {}</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if status:</p>
+
+<p class=MsoNormal>        filters[&quot;status&quot;] = status</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    tasks = Task.filter_with_raw_sql(filters)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return {</p>
+
+<p class=MsoNormal>        &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>        &quot;tasks&quot;: [</p>
+
+<p class=MsoNormal>            {&quot;id&quot;: t.id, &quot;title&quot;:
+t.title}</p>
+
+<p class=MsoNormal>            for t in tasks</p>
+
+<p class=MsoNormal>        ]</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_task_grouping(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    group_by = request.GET.get(&quot;group_by&quot;,
+&quot;status&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    results = Task.get_tasks_by_criteria(group_by)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return {</p>
+
+<p class=MsoNormal>        &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>        &quot;results&quot;: results</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_comment_search(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    term = request.GET.get(&quot;term&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if not term:</p>
+
+<p class=MsoNormal>        return {&quot;error&quot;: &quot;Search term
+required&quot;}</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    comments = Comment.search_comments(term)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return {</p>
+
+<p class=MsoNormal>        &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>        &quot;comments&quot;: [</p>
+
+<p class=MsoNormal>            {&quot;id&quot;: c.id, &quot;content&quot;:
+c.content[:100]}</p>
+
+<p class=MsoNormal>            for c in comments</p>
+
+<p class=MsoNormal>        ]</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_comment_ordering(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    task_id = request.GET.get(&quot;task_id&quot;)</p>
+
+<p class=MsoNormal>    order = request.GET.get(&quot;order&quot;,
+&quot;created_at&quot;)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    comments = Comment.get_comments_with_filter(task_id,
+order)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return {</p>
+
+<p class=MsoNormal>        &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>        &quot;comments&quot;: [</p>
+
+<p class=MsoNormal>            {&quot;id&quot;: c.id, &quot;content&quot;:
+c.content}</p>
+
+<p class=MsoNormal>            for c in comments</p>
+
+<p class=MsoNormal>        ]</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def handle_complex_query(request):</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    params = {</p>
+
+<p class=MsoNormal>        &quot;select_fields&quot;:
+request.GET.getlist(&quot;select&quot;),</p>
+
+<p class=MsoNormal>        &quot;where_conditions&quot;: {},</p>
+
+<p class=MsoNormal>        &quot;group_by&quot;:
+request.GET.get(&quot;group_by&quot;),</p>
+
+<p class=MsoNormal>        &quot;order_by&quot;:
+request.GET.get(&quot;order_by&quot;),</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    projects = complex_project_search(params)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    return {</p>
+
+<p class=MsoNormal>        &quot;status&quot;: &quot;success&quot;,</p>
+
+<p class=MsoNormal>        &quot;count&quot;: len(projects)</p>
+
+<p class=MsoNormal>    }</p>
+
+<p class=MsoNormal><b><span style='font-family:"Segoe UI Emoji",sans-serif'>&#128680;</span>
+What Was Fixed (All 10 Injection Points)</b></p>
+
+<table class=MsoNormalTable border=0 cellspacing=3 cellpadding=0>
+ <thead>
+  <tr>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Injection Point</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Fix</b></p>
+   </td>
+  </tr>
+ </thead>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Dynamic field name</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Whitelist</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>ORDER BY injection</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Whitelist</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>WHERE expression</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Structured filters</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>GROUP BY injection</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Whitelist</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>HAVING injection</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Aggregation filters</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>SELECT column injection</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Removed dynamic SELECT</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>ORDER BY expression</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Whitelist</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Query builder SELECT</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>ORM annotations</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Query builder WHERE</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>ORM filter dict</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Query builder HAVING</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>ORM aggregation</p>
+  </td>
+ </tr>
+</table>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b><span style='font-family:"Segoe UI Emoji",sans-serif'>&#128640;</span>
+Final Security Improvements</b></p>
+
+<p class=MsoNormal><b>Removed Dangerous APIs</b></p>
+
+<p class=MsoNormal>.raw()</p>
+
+<p class=MsoNormal>.extra()</p>
+
+<p class=MsoNormal>RawSQL()</p>
+
+<p class=MsoNormal>f-strings in SQL</p>
+
+<p class=MsoNormal>query builder string concatenation</p>
+
+<p class=MsoNormal>Enforced Identifier Whitelists</p>
+
+<p class=MsoNormal>ALLOWED_SEARCH_FIELDS</p>
+
+<p class=MsoNormal>ALLOWED_GROUP_FIELDS</p>
+
+<p class=MsoNormal>ALLOWED_ORDER_FIELDS</p>
+
+<p class=MsoNormal><b>ORM-Only Query Construction</b></p>
+
+<p class=MsoNormal>Safe primitives used:</p>
+
+<p class=MsoNormal>filter()</p>
+
+<p class=MsoNormal>annotate()</p>
+
+<p class=MsoNormal>values()</p>
+
+<p class=MsoNormal>order_by()</p>
+
+<p class=MsoNormal>select_related()</p>
+
+<p class=MsoNormal>Count()</p>
+
+</div>
+
+</body>
+
+</html>

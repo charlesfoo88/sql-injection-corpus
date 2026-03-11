@@ -22,6 +22,7 @@ When you open the `sql_injection_corpus/` folder, you'll see:
 Each folder contains one complete vulnerability sample with all test files and results:
 
 ```
+P4_WHERE_MULTI_01_MEDIUM/            ← Medium difficulty, first P4 pattern sample
 P5_DYNAMIC_IDENTIFIERS_01_MEDIUM/    ← Medium difficulty, first P5 pattern sample
 P5_DYNAMIC_IDENTIFIERS_02_HARD/      ← Hard difficulty, second P5 pattern sample
 P6_ORM_01_MEDIUM/                    ← Medium difficulty, first P6 pattern sample

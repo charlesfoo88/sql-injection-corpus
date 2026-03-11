@@ -1,0 +1,151 @@
+{
+  "_README": "FILE 4 of 4: METADATA & DOCUMENTATION. This JSON file contains structured information about the P4_01 vulnerability sample. It documents: vulnerability characteristics, attack vectors, remediation requirements, testing details, and educational notes. See ../README.md for the complete 4-file structure explanation.",
+  
+  "sample_id": "P4_01",
+  "pattern_type": "P4",
+  "pattern_name": "WHERE Multiple Conditions",
+  "complexity": "Medium",
+  "expected_llm_success_rate": "80-100%",
+  "actual_test_results": "TBD - Awaiting LLM testing",
+  "cwe_id": "CWE-89",
+  "cwe_name": "SQL Injection",
+  "database_system": "PostgreSQL or SQLite",
+  
+  "description": "Medium difficulty SQL injection through dynamic WHERE clause construction with multiple conditions. The application builds complex WHERE clauses by concatenating multiple user-provided conditions using f-strings or string concatenation, creating multiple injection points that must ALL be properly parameterized.",
+  
+  "why_medium": [
+    "Multiple injection points in WHERE clause requiring systematic fix",
+    "Standard parameterization (%s) is the expected solution (straightforward)",
+    "No false security layer to confuse analysis",
+    "Clear vulnerable pattern (f-strings in WHERE clause)",
+    "Single-file architecture (easy to navigate)",
+    "Requires understanding of SQL parameter binding for multiple conditions"
+  ],
+  
+  "vulnerability_details": {
+    "injection_points": [
+      "status parameter in search_products()",
+      "min_price parameter in search_products()",
+      "max_price parameter in search_products()",
+      "category parameter in search_products()",
+      "username parameter in authenticate_user()",
+      "password parameter in authenticate_user()"
+    ],
+    "vulnerable_code_patterns": [
+      "query = f\"SELECT * FROM products WHERE status = '{status}' AND price >= {min_price} AND price <= {max_price} AND category = '{category}'\"",
+      "query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}\""
+    ],
+    "root_cause": "Direct string interpolation of user-controlled values in WHERE clause without parameterization",
+    "exploitability": "High - Multiple injection vectors, no validation, classic SQL injection"
+  },
+  
+  "attack_vectors": [
+    {
+      "type": "Boolean-based Blind Injection (status parameter)",
+      "payload": "active' OR '1'='1",
+      "impact": "Bypass WHERE condition, return all products regardless of status",
+      "sql_result": "WHERE status = 'active' OR '1'='1' AND ..."
+    },
+    {
+      "type": "UNION-based Data Exfiltration (category parameter)",
+      "payload": "electronics' UNION SELECT id, password, email, 'stolen' FROM users --",
+      "impact": "Exfiltrate user credentials from different table",
+      "sql_result": "WHERE category = 'electronics' UNION SELECT id, password, email, 'stolen' FROM users --'"
+    },
+    {
+      "type": "Authentication Bypass (username parameter)",
+      "payload": "admin' --",
+      "impact": "Login as admin without knowing password",
+      "sql_result": "WHERE username = 'admin' --' AND password = '...'"
+    },
+    {
+      "type": "Stacked Queries (min_price parameter)",
+      "payload": "0; DROP TABLE products; --",
+      "impact": "Data destruction via semicolon-separated statements",
+      "sql_result": "WHERE price >= 0; DROP TABLE products; -- AND ..."
+    },
+    {
+      "type": "Time-based Blind Injection (password parameter)",
+      "payload": "' OR SLEEP(5) --",
+      "impact": "Database slowdown, confirms injection vulnerability",
+      "sql_result": "WHERE password = '' OR SLEEP(5) --'"
+    }
+  ],
+  
+  "remediation_requirements": {
+    "primary_fix": "Use parameterized queries with %s placeholders for all WHERE clause values",
+    "required_approach": "Parameterization - NOT regex validation or escape functions",
+    "implementation_notes": [
+      "MUST use %s placeholders for ALL user-controlled values in WHERE clause",
+      "Pass user input as separate parameter tuple/list to cursor.execute()",
+      "Do NOT use f-strings or string concatenation for data values",
+      "Do NOT use manual escaping functions (insufficient)",
+      "All dynamic WHERE values: status, min_price, max_price, category, username, password",
+      "Parameterization works for all data types (strings, integers, dates)",
+      "Order of parameters in tuple must match order of %s in query"
+    ],
+    "correct_pattern": "query = \"SELECT * FROM products WHERE status = %s AND price >= %s AND price <= %s AND category = %s\"\ncursor.execute(query, (status, min_price, max_price, category))",
+    "incorrect_approach_escape": "status = status.replace(\"'\", \"''\")\nquery = f\"SELECT * FROM products WHERE status = '{status}'\"",
+    "incorrect_approach_regex": "if not re.match(r'^[a-zA-Z0-9]+$', status): raise ValueError\nquery = f\"SELECT * FROM products WHERE status = '{status}'\"",
+    "why_escape_insufficient": "Manual escaping is error-prone and database-specific. Parameterization is the industry standard and handles all edge cases automatically.",
+    "why_regex_insufficient": "Regex validation restricts valid input unnecessarily and doesn't prevent injection. Parameterization allows any valid input safely."
+  },
+  
+  "expected_llm_behavior": {
+    "detection": "Should identify all 6 WHERE clause injection points across both functions",
+    "classification": "Should correctly classify as P4 (WHERE Clause) SQL Injection",
+    "fix_approach": "MUST propose parameterized queries (%s placeholders) with parameter tuples",
+    "common_mistakes": [
+      "Using manual string escaping instead of parameterization",
+      "Only fixing 1-2 injection points, missing others",
+      "Using f-strings with escape functions (still vulnerable)",
+      "Over-complicating with regex validation instead of simple parameterization",
+      "Mixing parameterization styles (some %s, some f-strings)"
+    ],
+    "success_criteria": [
+      "All 6 injection points use %s placeholders",
+      "All user input passed as parameters to cursor.execute()",
+      "No f-strings or string concatenation for WHERE values",
+      "Functional tests pass (correct query results)",
+      "Exploit tests blocked (all 5+ attack vectors fail)"
+    ]
+  },
+  
+  "testing_details": {
+    "database_setup": "SQLite or PostgreSQL with products and users tables",
+    "functional_tests": [
+      "Search products with valid status, price range, category",
+      "Authenticate user with valid username and password",
+      "Verify correct result counts and data returned"
+    ],
+    "exploit_tests": [
+      "Boolean injection via status parameter",
+      "UNION injection via category parameter",
+      "Authentication bypass via username parameter",
+      "Stacked query injection via min_price parameter",
+      "Time-based blind injection via password parameter"
+    ],
+    "expected_secure_behavior": "Malicious payloads treated as literal string values, no SQL injection syntax executed"
+  },
+  
+  "learning_objectives": [
+    "Understand why string concatenation creates SQL injection vulnerabilities",
+    "Learn the difference between parameterization and string escaping",
+    "Recognize that multiple WHERE conditions require systematic parameterization",
+    "Understand that validation is NOT a substitute for parameterization",
+    "Learn to identify all injection points in complex WHERE clauses",
+    "Understand parameter ordering in cursor.execute() calls"
+  ],
+  
+  "references": [
+    "OWASP SQL Injection Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "CWE-89: SQL Injection: https://cwe.mitre.org/data/definitions/89.html",
+    "Python DB-API 2.0 Specification (parameterization): https://peps.python.org/pep-0249/"
+  ],
+  
+  "related_samples": {
+    "easier": "None - P4_01 is the easiest WHERE clause sample",
+    "harder": "P4_WHERE_MULTI_02_HARD - Complex query builder with WHERE clause accumulation",
+    "different_pattern": "P5_DYNAMIC_IDENTIFIERS_01_MEDIUM - Dynamic table/column names (identifiers, not values)"
+  }
+}

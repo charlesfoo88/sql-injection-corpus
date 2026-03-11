@@ -1,0 +1,1019 @@
+<html>
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=windows-1252">
+<meta name=Generator content="Microsoft Word 15 (filtered)">
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:Wingdings;
+	panose-1:5 0 0 0 0 0 0 0 0 0;}
+@font-face
+	{font-family:"Cordia New";
+	panose-1:2 11 3 4 2 2 2 2 2 4;}
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:DengXian;
+	panose-1:2 1 6 0 3 1 1 1 1 1;}
+@font-face
+	{font-family:Aptos;}
+@font-face
+	{font-family:"Segoe UI Symbol";
+	panose-1:2 11 5 2 4 2 4 2 2 3;}
+@font-face
+	{font-family:"\@DengXian";
+	panose-1:2 1 6 0 3 1 1 1 1 1;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin-top:0cm;
+	margin-right:0cm;
+	margin-bottom:8.0pt;
+	margin-left:0cm;
+	line-height:115%;
+	font-size:12.0pt;
+	font-family:"Aptos",sans-serif;}
+.MsoPapDefault
+	{margin-bottom:8.0pt;
+	line-height:115%;}
+@page WordSection1
+	{size:595.3pt 841.9pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+ /* List Definitions */
+ ol
+	{margin-bottom:0cm;}
+ul
+	{margin-bottom:0cm;}
+-->
+</style>
+
+</head>
+
+<body lang=EN-SG style='word-wrap:break-word'>
+
+<div class=WordSection1>
+
+<p class=MsoNormal><span lang=EN-GB>&nbsp;</span></p>
+
+<p class=MsoNormal><b>1. Vulnerability Analysis</b></p>
+
+<p class=MsoNormal>The root cause across all functions is the same:</p>
+
+<p class=MsoNormal><b>User input is concatenated directly into SQL queries
+using f-strings.</b></p>
+
+<p class=MsoNormal>This allows attackers to inject SQL syntax that alters the
+intended query logic.</p>
+
+<p class=MsoNormal>The vulnerable pattern appears multiple times:</p>
+
+<p class=MsoNormal>query = f&quot;... {user_input} ...&quot;</p>
+
+<p class=MsoNormal>Instead, queries must use <b>parameterized queries</b> where
+the database driver safely binds parameters.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>A. search_products() Vulnerabilities</b></p>
+
+<p class=MsoNormal><b>Injection Points</b></p>
+
+<table class=MsoNormalTable border=0 cellspacing=3 cellpadding=0>
+ <thead>
+  <tr>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Line (approx)</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Parameter</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Vulnerable Code</b></p>
+   </td>
+  </tr>
+ </thead>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>34</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>status</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>WHERE status = '{status}'</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>35</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>min_price</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>AND price &gt;= {min_price}</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>36</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>max_price</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>AND price &lt;= {max_price}</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>40</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>category</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>AND category = '{category}'</p>
+  </td>
+ </tr>
+</table>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Why Vulnerable</b></p>
+
+<p class=MsoNormal>The query is built like:</p>
+
+<p class=MsoNormal>WHERE status = 'active'</p>
+
+<p class=MsoNormal>AND price &gt;= 0</p>
+
+<p class=MsoNormal>AND price &lt;= 999999</p>
+
+<p class=MsoNormal>But if an attacker injects SQL syntax:</p>
+
+<p class=MsoNormal>status = active' OR 1=1 --</p>
+
+<p class=MsoNormal>The query becomes:</p>
+
+<p class=MsoNormal>WHERE status = 'active' OR 1=1 --'</p>
+
+<p class=MsoNormal>AND price &gt;= 0</p>
+
+<p class=MsoNormal>Result:</p>
+
+<p class=MsoNormal><span style='font-family:"Segoe UI Symbol",sans-serif'>&#10004;</span>
+Returns <b>all products</b></p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Example Attacks</b></p>
+
+<p class=MsoNormal><b>1. Filter Bypass</b></p>
+
+<p class=MsoNormal>search_products(db, status=&quot;active' OR 1=1 --&quot;)</p>
+
+<p class=MsoNormal>SQL becomes:</p>
+
+<p class=MsoNormal>WHERE status = 'active' OR 1=1 --'</p>
+
+<p class=MsoNormal>All rows returned.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>2. UNION Data Exfiltration</b></p>
+
+<p class=MsoNormal>category = electronics' UNION SELECT
+id,password,email,role,'x' FROM users --</p>
+
+<p class=MsoNormal>Query becomes:</p>
+
+<p class=MsoNormal>SELECT id,name,price,status,category</p>
+
+<p class=MsoNormal>FROM products</p>
+
+<p class=MsoNormal>WHERE ...</p>
+
+<p class=MsoNormal>AND category = 'electronics'</p>
+
+<p class=MsoNormal>UNION SELECT id,password,email,role,'x' FROM users --</p>
+
+<p class=MsoNormal>Result:</p>
+
+<p class=MsoNormal><span style='font-family:"Segoe UI Symbol",sans-serif'>&#10004;</span>
+User credentials leaked.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>3. Numeric Injection</b></p>
+
+<p class=MsoNormal>Even numeric fields are unsafe:</p>
+
+<p class=MsoNormal>min_price = &quot;0 OR 1=1&quot;</p>
+
+<p class=MsoNormal>Query:</p>
+
+<p class=MsoNormal>price &gt;= 0 OR 1=1</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Risk Assessment</b></p>
+
+<p class=MsoNormal>Severity: <b>CRITICAL</b></p>
+
+<p class=MsoNormal>Attackers can:</p>
+
+<ul style='margin-top:0cm' type=disc>
+ <li class=MsoNormal>bypass filters</li>
+ <li class=MsoNormal>dump user credentials</li>
+ <li class=MsoNormal>manipulate results</li>
+ <li class=MsoNormal>potentially modify database</li>
+</ul>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>B. authenticate_user() Vulnerabilities</b></p>
+
+<p class=MsoNormal><b>Injection Points</b></p>
+
+<table class=MsoNormalTable border=0 cellspacing=3 cellpadding=0>
+ <thead>
+  <tr>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Line</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Parameter</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Code</b></p>
+   </td>
+  </tr>
+ </thead>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>73</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>username</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>username = '{username}'</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>74</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>password</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>password = '{password}'</p>
+  </td>
+ </tr>
+</table>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Why Vulnerable</b></p>
+
+<p class=MsoNormal>Query structure:</p>
+
+<p class=MsoNormal>SELECT id, username, email, role</p>
+
+<p class=MsoNormal>FROM users</p>
+
+<p class=MsoNormal>WHERE username = '{username}'</p>
+
+<p class=MsoNormal>AND password = '{password}'</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Authentication Bypass</b></p>
+
+<p class=MsoNormal>Input:</p>
+
+<p class=MsoNormal>username = &quot;admin' --&quot;</p>
+
+<p class=MsoNormal>password = &quot;anything&quot;</p>
+
+<p class=MsoNormal>Query becomes:</p>
+
+<p class=MsoNormal>WHERE username = 'admin' --'</p>
+
+<p class=MsoNormal>AND password = 'anything'</p>
+
+<p class=MsoNormal>-- comments out the password check.</p>
+
+<p class=MsoNormal><span style='font-family:"Segoe UI Symbol",sans-serif'>&#10004;</span>
+Attacker logs in as admin.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>UNION Credential Dump</b></p>
+
+<p class=MsoNormal>username = ' UNION SELECT id,username,password,role FROM
+users --</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Risk Assessment</b></p>
+
+<p class=MsoNormal>Severity: <b>CRITICAL</b></p>
+
+<p class=MsoNormal>Allows:</p>
+
+<ul style='margin-top:0cm' type=disc>
+ <li class=MsoNormal>login bypass</li>
+ <li class=MsoNormal>privilege escalation</li>
+ <li class=MsoNormal>credential extraction</li>
+</ul>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>C. get_filtered_orders() Vulnerabilities</b></p>
+
+<p class=MsoNormal><b>Injection Points</b></p>
+
+<table class=MsoNormalTable border=0 cellspacing=3 cellpadding=0>
+ <thead>
+  <tr>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Line</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Parameter</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Code</b></p>
+   </td>
+  </tr>
+ </thead>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>111</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>customer_id</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>customer_id = {customer_id}</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>114</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>start_date</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>order_date &gt;= '{start_date}'</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>117</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>end_date</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>order_date &lt;= '{end_date}'</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>120</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>min_total</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>total &gt;= {min_total}</p>
+  </td>
+ </tr>
+</table>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Attack Example</b></p>
+
+<p class=MsoNormal>start_date = &quot;2024-01-01' OR 1=1 --&quot;</p>
+
+<p class=MsoNormal>Query becomes:</p>
+
+<p class=MsoNormal>AND order_date &gt;= '2024-01-01' OR 1=1 --'</p>
+
+<p class=MsoNormal>Returns <b>all orders</b>.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>UNION Attack</b></p>
+
+<p class=MsoNormal>end_date = &quot;2025-01-01' UNION SELECT * FROM users
+--&quot;</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Risk Assessment</b></p>
+
+<p class=MsoNormal>Severity: <b>HIGH</b></p>
+
+<p class=MsoNormal>Possible:</p>
+
+<ul style='margin-top:0cm' type=disc>
+ <li class=MsoNormal>financial data exposure</li>
+ <li class=MsoNormal>unauthorized order access</li>
+</ul>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Summary of Injection Points</b></p>
+
+<p class=MsoNormal>Total injection points:</p>
+
+<p class=MsoNormal>search_products: 4</p>
+
+<p class=MsoNormal>authenticate_user: 2</p>
+
+<p class=MsoNormal>get_filtered_orders: 4</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>TOTAL: 10</p>
+
+<p class=MsoNormal>All stem from <b>string concatenation in SQL</b>.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>2. Secure Refactored Code</b></p>
+
+<p class=MsoNormal>Key fix:</p>
+
+<p class=MsoNormal>Use <b>parameterized queries (?)</b> with SQLite.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Secure Implementation</b></p>
+
+<p class=MsoNormal>import sqlite3</p>
+
+<p class=MsoNormal>from typing import List, Dict, Any, Optional</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def search_products(</p>
+
+<p class=MsoNormal>    db_path: str,</p>
+
+<p class=MsoNormal>    status: str = &quot;active&quot;,</p>
+
+<p class=MsoNormal>    min_price: float = 0.0,</p>
+
+<p class=MsoNormal>    max_price: float = 999999.99,</p>
+
+<p class=MsoNormal>    category: str = &quot;all&quot;</p>
+
+<p class=MsoNormal>) -&gt; List[Dict[str, Any]]:</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    Secure product search using parameterized queries.</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    conn = sqlite3.connect(db_path)</p>
+
+<p class=MsoNormal>    conn.row_factory = sqlite3.Row</p>
+
+<p class=MsoNormal>    cursor = conn.cursor()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    # Base query with parameter placeholders</p>
+
+<p class=MsoNormal>    query = &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>        SELECT id, name, price, status, category</p>
+
+<p class=MsoNormal>        FROM products</p>
+
+<p class=MsoNormal>        WHERE status = ?</p>
+
+<p class=MsoNormal>        AND price &gt;= ?</p>
+
+<p class=MsoNormal>        AND price &lt;= ?</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    params = [status, min_price, max_price]</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    # Optional category filter</p>
+
+<p class=MsoNormal>    if category != &quot;all&quot;:</p>
+
+<p class=MsoNormal>        query += &quot; AND category = ?&quot;</p>
+
+<p class=MsoNormal>        params.append(category)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    try:</p>
+
+<p class=MsoNormal>        # Execute with parameter binding (prevents SQL
+injection)</p>
+
+<p class=MsoNormal>        cursor.execute(query, params)</p>
+
+<p class=MsoNormal>        results = [dict(row) for row in cursor.fetchall()]</p>
+
+<p class=MsoNormal>        return results</p>
+
+<p class=MsoNormal>    except sqlite3.Error as e:</p>
+
+<p class=MsoNormal>        print(f&quot;Database error: {e}&quot;)</p>
+
+<p class=MsoNormal>        return []</p>
+
+<p class=MsoNormal>    finally:</p>
+
+<p class=MsoNormal>        conn.close()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def authenticate_user(</p>
+
+<p class=MsoNormal>    db_path: str,</p>
+
+<p class=MsoNormal>    username: str,</p>
+
+<p class=MsoNormal>    password: str</p>
+
+<p class=MsoNormal>) -&gt; Optional[Dict[str, Any]]:</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    Secure authentication using parameterized queries.</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    conn = sqlite3.connect(db_path)</p>
+
+<p class=MsoNormal>    conn.row_factory = sqlite3.Row</p>
+
+<p class=MsoNormal>    cursor = conn.cursor()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    query = &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>        SELECT id, username, email, role</p>
+
+<p class=MsoNormal>        FROM users</p>
+
+<p class=MsoNormal>        WHERE username = ?</p>
+
+<p class=MsoNormal>        AND password = ?</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    try:</p>
+
+<p class=MsoNormal>        # Parameters are safely bound by the DB driver</p>
+
+<p class=MsoNormal>        cursor.execute(query, (username, password))</p>
+
+<p class=MsoNormal>        result = cursor.fetchone()</p>
+
+<p class=MsoNormal>        return dict(result) if result else None</p>
+
+<p class=MsoNormal>    except sqlite3.Error as e:</p>
+
+<p class=MsoNormal>        print(f&quot;Authentication error: {e}&quot;)</p>
+
+<p class=MsoNormal>        return None</p>
+
+<p class=MsoNormal>    finally:</p>
+
+<p class=MsoNormal>        conn.close()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>def get_filtered_orders(</p>
+
+<p class=MsoNormal>    db_path: str,</p>
+
+<p class=MsoNormal>    customer_id: Optional[int] = None,</p>
+
+<p class=MsoNormal>    start_date: Optional[str] = None,</p>
+
+<p class=MsoNormal>    end_date: Optional[str] = None,</p>
+
+<p class=MsoNormal>    min_total: Optional[float] = None</p>
+
+<p class=MsoNormal>) -&gt; List[Dict[str, Any]]:</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    Secure order filtering with dynamic parameterized query
+building.</p>
+
+<p class=MsoNormal>    &quot;&quot;&quot;</p>
+
+<p class=MsoNormal>    conn = sqlite3.connect(db_path)</p>
+
+<p class=MsoNormal>    conn.row_factory = sqlite3.Row</p>
+
+<p class=MsoNormal>    cursor = conn.cursor()</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    query = &quot;SELECT * FROM orders WHERE 1=1&quot;</p>
+
+<p class=MsoNormal>    params = []</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if customer_id is not None:</p>
+
+<p class=MsoNormal>        query += &quot; AND customer_id = ?&quot;</p>
+
+<p class=MsoNormal>        params.append(customer_id)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if start_date:</p>
+
+<p class=MsoNormal>        query += &quot; AND order_date &gt;= ?&quot;</p>
+
+<p class=MsoNormal>        params.append(start_date)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if end_date:</p>
+
+<p class=MsoNormal>        query += &quot; AND order_date &lt;= ?&quot;</p>
+
+<p class=MsoNormal>        params.append(end_date)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    if min_total is not None:</p>
+
+<p class=MsoNormal>        query += &quot; AND total &gt;= ?&quot;</p>
+
+<p class=MsoNormal>        params.append(min_total)</p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal>    try:</p>
+
+<p class=MsoNormal>        cursor.execute(query, params)</p>
+
+<p class=MsoNormal>        results = [dict(row) for row in cursor.fetchall()]</p>
+
+<p class=MsoNormal>        return results</p>
+
+<p class=MsoNormal>    except sqlite3.Error as e:</p>
+
+<p class=MsoNormal>        print(f&quot;Database error: {e}&quot;)</p>
+
+<p class=MsoNormal>        return []</p>
+
+<p class=MsoNormal>    finally:</p>
+
+<p class=MsoNormal>        conn.close()</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>3. Remediation Summary</b></p>
+
+<p class=MsoNormal><b>Core Fix</b></p>
+
+<p class=MsoNormal>Replaced <b>string interpolation</b> with <b>parameterized
+queries</b>.</p>
+
+<p class=MsoNormal>Unsafe:</p>
+
+<p class=MsoNormal>f&quot;WHERE username = '{username}'&quot;</p>
+
+<p class=MsoNormal>Secure:</p>
+
+<p class=MsoNormal>&quot;WHERE username = ?&quot;</p>
+
+<p class=MsoNormal>cursor.execute(query, (username,))</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Why Parameterized Queries Work</b></p>
+
+<p class=MsoNormal>With parameterization:</p>
+
+<ol style='margin-top:0cm' start=1 type=1>
+ <li class=MsoNormal>SQL query structure is sent first.</li>
+ <li class=MsoNormal>Parameters are sent separately.</li>
+ <li class=MsoNormal>Database treats them <b>only as data</b>, not SQL.</li>
+</ol>
+
+<p class=MsoNormal>Example:</p>
+
+<p class=MsoNormal>username = &quot;admin' --&quot;</p>
+
+<p class=MsoNormal>Database interprets as:</p>
+
+<p class=MsoNormal>literal string: admin' --</p>
+
+<p class=MsoNormal>NOT SQL syntax.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Verification of Fixes</b></p>
+
+<table class=MsoNormalTable border=0 cellspacing=3 cellpadding=0>
+ <thead>
+  <tr>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Function</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Injection Points Fixed</b></p>
+   </td>
+  </tr>
+ </thead>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>search_products</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>4</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>authenticate_user</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>2</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>get_filtered_orders</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>4</p>
+  </td>
+ </tr>
+</table>
+
+<p class=MsoNormal><span style='font-family:"Segoe UI Symbol",sans-serif'>&#10004;</span>
+<b>All 10 injection points removed</b></p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Additional Security Recommendations</b></p>
+
+<p class=MsoNormal><b>1. Password Hashing (Critical)</b></p>
+
+<p class=MsoNormal>Never store plaintext passwords.</p>
+
+<p class=MsoNormal>Use:</p>
+
+<ul style='margin-top:0cm' type=disc>
+ <li class=MsoNormal>bcrypt</li>
+ <li class=MsoNormal>argon2</li>
+ <li class=MsoNormal>PBKDF2</li>
+</ul>
+
+<p class=MsoNormal>Example:</p>
+
+<p class=MsoNormal>bcrypt.checkpw(password, stored_hash)</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>2. Least Privilege DB Access</b></p>
+
+<p class=MsoNormal>Application DB user should not have:</p>
+
+<p class=MsoNormal>DROP TABLE</p>
+
+<p class=MsoNormal>ALTER TABLE</p>
+
+<p class=MsoNormal>CREATE USER</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>3. Input Validation</b></p>
+
+<p class=MsoNormal>Parameterization protects SQL, but still validate:</p>
+
+<ul style='margin-top:0cm' type=disc>
+ <li class=MsoNormal>dates</li>
+ <li class=MsoNormal>numeric ranges</li>
+ <li class=MsoNormal>allowed status values</li>
+</ul>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>4. Centralized DB Layer</b></p>
+
+<p class=MsoNormal>Use a repository layer or ORM (e.g., SQLAlchemy) to reduce
+manual SQL risks.</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal><b>Final Security Assessment</b></p>
+
+<table class=MsoNormalTable border=0 cellspacing=3 cellpadding=0>
+ <thead>
+  <tr>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Category</b></p>
+   </td>
+   <td style='padding:.75pt .75pt .75pt .75pt'>
+   <p class=MsoNormal><b>Status</b></p>
+   </td>
+  </tr>
+ </thead>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>SQL Injection</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>FIXED</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Authentication Bypass</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>FIXED</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Data Exfiltration</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>FIXED</p>
+  </td>
+ </tr>
+ <tr>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>Filter Manipulation</p>
+  </td>
+  <td style='padding:.75pt .75pt .75pt .75pt'>
+  <p class=MsoNormal>FIXED</p>
+  </td>
+ </tr>
+</table>
+
+<p class=MsoNormal><b>Final Severity After Fix:</b> LOW</p>
+
+<div class=MsoNormal align=center style='text-align:center'>
+
+<hr size=2 width="100%" align=center>
+
+</div>
+
+<p class=MsoNormal>If you'd like, I can also show <b>how real attackers
+automate exploiting this exact vulnerability (sqlmap style)</b> and how
+pentesters would detect it quickly. It’s useful if you're doing <b>security
+engineering or ML security datasets.</b></p>
+
+<p class=MsoNormal><span style='display:none'>Top of Form</span></p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<p class=MsoNormal><span style='display:none'>Bottom of Form</span></p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+</div>
+
+</body>
+
+</html>

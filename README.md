@@ -4,9 +4,9 @@
 This corpus contains SQL injection vulnerability samples for the MDAI Industry Project on "Human & Neuro-Symbolic AI Remediation for Python SQL Injection".
 
 **Quick Navigation**:
+- 📋 **[Reproduce Results Instructions.md](Reproduce%20Results%20Instructions.md)** - **START HERE** - Complete guide to setup environment and run tests
 - [Root Folder Files](#root-folder-files) - What's in the main directory
 - [Sample Folder Structure](#sample-folder-structure) - What's inside each P#_## folder
-- [How to Use This Corpus](#how-to-use-this-corpus) - Getting started
 - [Understanding Test Results](#understanding-test-results) - Reading the analysis files
 
 ---
@@ -15,7 +15,10 @@ This corpus contains SQL injection vulnerability samples for the MDAI Industry P
 
 When you open the `sql_injection_corpus/` folder, you'll see:
 
-- **README.md** - This guide (explains corpus structure and usage)
+- **README.md** - This guide (explains corpus structure and file organization)
+- **Reproduce Results Instructions.md** - Step-by-step guide to setup environment and run tests independently
+- **requirements.txt** - Python package dependencies (psycopg2-binary, Django)
+- **CORPUS_STRATEGY.md** - Sample development strategy and progress tracking
 
 ### 📁 Sample Folders (The Main Content)
 
@@ -383,5 +386,5 @@ C:/Users/charlesfoo/anaconda3/Scripts/conda.exe run -n mdai python P5_01_functio
 
 ---
 
-**Last Updated**: March 11, 2026  
-**Corpus Status**: 5 samples tested and documented
+**Last Updated**: March 30, 2026  
+**Corpus Status**: 6 samples tested and documented

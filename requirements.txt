@@ -1,0 +1,14 @@
+# SQL Injection Corpus - Python Dependencies
+# For MDAI Industry Project: Human & Neuro-Symbolic AI Remediation for Python SQL Injection
+
+# Database drivers
+psycopg2-binary>=2.9.9    # PostgreSQL adapter (P5 samples)
+Django>=4.2.0             # Django ORM framework (P6 samples)
+
+# Note: sqlite3 is included in Python standard library (P4, P9 samples)
+
+# Testing utilities (already in standard library)
+# - typing
+# - unittest
+# - argparse
+# - importlib

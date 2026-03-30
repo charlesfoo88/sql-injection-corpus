@@ -1,8 +1,10 @@
 # SQL Injection Corpus - Strategy Document
 
 **Project**: MDAI Industry Project - Human & Neuro-Symbolic AI Remediation  
-**Last Updated**: March 11, 2026  
+**Last Updated**: March 30, 2026  
 **Status**: 6/8 vulnerable samples complete, 0/2 benign samples
+
+**Documentation**: See "Reproduce Results Instructions.md" for independent test verification guide
 
 ---
 

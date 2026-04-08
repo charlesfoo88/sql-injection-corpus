@@ -11,13 +11,18 @@ This guide explains how to independently verify the test results for the SQL inj
 **What you'll do**:
 1. Get the corpus from GitHub (clone or download)
 2. Verify Python is installed
-3. Set up a Python environment
-4. Install dependencies (psycopg2-binary, Django)
-5. Run tests on sample vulnerabilities
-6. Review test results
+3. **(Optional)** Install PostgreSQL (only for P5 samples)
+4. Set up a Python environment
+5. Install dependencies (psycopg2-binary, Django)
+6. Run tests on sample vulnerabilities
+7. Review test results
 
-**Time required**: ~15-30 minutes  
+**Time required**: ~15-30 minutes (SQLite samples) or ~30-45 minutes (with PostgreSQL for P5)  
 **Prerequisites**: Basic command-line knowledge
+
+**Database Requirements**:
+- **P4, P6, P9 samples**: SQLite (built into Python - no installation needed)
+- **P5 samples**: PostgreSQL server (installation required - see Step 1.5)
 
 ---
 
@@ -151,6 +156,62 @@ pwd
 # Navigate to it, for example:
 cd path/to/sql-injection-corpus
 ```
+
+---
+
+## Step 1.5: Database Setup (Optional - P5 Samples Only)
+
+**Do you need this step?**
+- ✅ **Skip this if testing P4, P6, or P9 samples** - SQLite is built into Python
+- ⚠️ **Required only for P5 samples** (P5_DYNAMIC_IDENTIFIERS_01_MEDIUM, P5_DYNAMIC_IDENTIFIERS_02_HARD)
+
+### Install PostgreSQL Server (P5 Samples Only)
+
+**Windows**:
+1. Download PostgreSQL from: https://www.postgresql.org/download/windows/
+2. Run the installer (use default port 5432)
+3. Set password to `postgres123` when prompted (or remember your password)
+4. After installation, verify:
+   ```powershell
+   # Check if PostgreSQL service is running
+   Get-Service -Name postgresql*
+   ```
+
+**Mac**:
+```bash
+# Install via Homebrew
+brew install postgresql@14
+
+# Start PostgreSQL service
+brew services start postgresql@14
+
+# Create default user with password
+psql postgres -c "ALTER USER postgres PASSWORD 'postgres123';"
+```
+
+**Linux (Ubuntu/Debian)**:
+```bash
+# Install PostgreSQL
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+# Start service
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Set password for postgres user
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres123';"
+```
+
+**Verify PostgreSQL is running**:
+```bash
+# Try connecting (should succeed without errors)
+psql -U postgres -h localhost -p 5432
+# Enter password: postgres123
+# Then type: \q to quit
+```
+
+**Note**: If you use a different password, you'll need to update connection parameters in P5 test files.
 
 ---
 
@@ -353,16 +414,18 @@ cd P9_SECOND_ORDER_01_VERY_HARD
 
 ### All Available Samples
 
-| Folder Name | Difficulty | Database | LLM Success | Best For |
-|-------------|------------|----------|-------------|----------|
-| **P4_WHERE_MULTI_01_MEDIUM** | Medium | SQLite | 3/3 (100%) | **Start here - easiest** |
-| P5_DYNAMIC_IDENTIFIERS_01_MEDIUM | Medium | PostgreSQL | 2/3 (67%) | Dynamic identifiers |
-| P5_DYNAMIC_IDENTIFIERS_02_HARD | Hard | PostgreSQL | 0/3 (0%) | Complex injection |
-| P6_ORM_01_MEDIUM | Medium | SQLite | 2/3 (67%) | Django ORM |
-| P6_ORM_02_HARD | Hard | SQLite | 0/3 (0%) | Complex ORM |
-| P9_SECOND_ORDER_01_VERY_HARD | Very Hard | SQLite | 0/3 (0%) | Second-order SQLi |
+| Folder Name | Difficulty | Database | Installation Needed? | LLM Success | Best For |
+|-------------|------------|----------|---------------------|-------------|----------|
+| **P4_WHERE_MULTI_01_MEDIUM** | Medium | SQLite | ✅ **No** (built-in) | 3/3 (100%) | **Start here - easiest** |
+| P5_DYNAMIC_IDENTIFIERS_01_MEDIUM | Medium | PostgreSQL | ❌ **Yes** (server) | 2/3 (67%) | Dynamic identifiers |
+| P5_DYNAMIC_IDENTIFIERS_02_HARD | Hard | PostgreSQL | ❌ **Yes** (server) | 0/3 (0%) | Complex injection |
+| P6_ORM_01_MEDIUM | Medium | SQLite | ✅ **No** (built-in) | 2/3 (67%) | Django ORM |
+| P6_ORM_02_HARD | Hard | SQLite | ✅ **No** (built-in) | 0/3 (0%) | Complex ORM |
+| P9_SECOND_ORDER_01_VERY_HARD | Very Hard | SQLite | ✅ **No** (built-in) | 0/3 (0%) | Second-order SQLi |
 
-**Tip**: P4 and P6 samples use SQLite (easier, no external DB). P5 samples use PostgreSQL adapter but still work with local testing.
+**Database Requirements Summary**:
+- **SQLite samples (P4, P6, P9)**: No installation needed - sqlite3 module is built into Python
+- **PostgreSQL samples (P5)**: Requires PostgreSQL server installation (see Step 1.5)
 
 ---
 
@@ -454,6 +517,10 @@ cd sql-injection-corpus
 python --version  # Should show 3.8+
 pwd              # Verify you're in sql-injection-corpus folder
 
+# Step 1.5: (OPTIONAL) Install PostgreSQL - only if testing P5 samples
+# See "Step 1.5: Database Setup" section above for platform-specific instructions
+# SQLite samples (P4, P6, P9) don't need this - skip to Step 2
+
 # Step 2: Create and activate environment (using conda example)
 conda create -n sqli_corpus python=3.10 -y
 conda activate sqli_corpus
@@ -462,7 +529,7 @@ pip install psycopg2-binary Django
 # Step 3: Verify installation
 pip list | grep -E "psycopg2|Django"
 
-# Step 4: Run first test
+# Step 4: Run first test (P4 uses SQLite - no database server needed)
 cd P4_WHERE_MULTI_01_MEDIUM
 .\run_all_tests.ps1  # Windows
 # Or for Mac/Linux: python P4_01_automated_test.py --llm claude
@@ -547,6 +614,19 @@ del test_outputs\test_*.db
 **Cause**: LLM extracted code might not exist  
 **Fix**: Check if `llm_extracted/` folders exist and contain Python files. Some samples may not have all 3 LLM implementations.
 
+### Issue: PostgreSQL connection errors (P5 samples)
+**Error**: `psycopg2.OperationalError: could not connect to server`  
+**Cause**: PostgreSQL server not installed or not running  
+**Fix**: 
+1. Install PostgreSQL server (see Step 1.5)
+2. Verify service is running:
+   - **Windows**: Check Services app for "postgresql" service
+   - **Mac**: `brew services list | grep postgresql`
+   - **Linux**: `sudo systemctl status postgresql`
+3. Verify connection: `psql -U postgres -h localhost -p 5432`
+
+**Note**: P4, P6, and P9 samples use SQLite and don't need PostgreSQL.
+
 ---
 
 ## Platform-Specific Notes
@@ -562,8 +642,9 @@ del test_outputs\test_*.db
 - May need to use `python3` instead of `python`
 
 ### All Platforms
-- SQLite tests (P4, P6, P9) are most reliable across platforms
-- PostgreSQL adapter tests (P5) may have platform-specific behaviors
+- **SQLite samples (P4, P6, P9)**: Work out-of-box, no database installation needed
+- **PostgreSQL samples (P5)**: Require PostgreSQL server installation and configuration
+- If testing only SQLite samples, skip PostgreSQL installation entirely
 
 ---
 
@@ -575,6 +656,7 @@ Use this to ensure complete verification:
 - [ ] Located in `sql_injection_corpus` folder (`pwd` shows correct path)
 - [ ] Environment created and activated (prompt shows environment name)
 - [ ] Dependencies installed (`pip list` shows psycopg2-binary and Django)
+- [ ] **(P5 samples only)** PostgreSQL server installed and running
 - [ ] P4_WHERE_MULTI_01_MEDIUM test runs successfully
 - [ ] Test output files created in `test_outputs/` folder
 - [ ] Can open and read test result files
@@ -631,6 +713,7 @@ If you encounter issues not covered here:
 
 ---
 
-**Last Updated**: March 30, 2026  
+**Last Updated**: April 8, 2026  
 **Tested On**: Python 3.10+, Windows 11, Ubuntu 22.04, macOS Monterey  
+**Database Requirements**: SQLite (built-in), PostgreSQL 14+ (P5 samples only)  
 **Support**: See README.md for corpus structure documentation

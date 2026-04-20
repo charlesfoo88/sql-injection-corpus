@@ -11,7 +11,7 @@
   "cwe_name": "SQL Injection",
   "database_system": "PostgreSQL or SQLite",
   
-  "description": "Medium difficulty SQL injection through dynamic WHERE clause construction with multiple conditions. The application builds complex WHERE clauses by concatenating multiple user-provided conditions using f-strings or string concatenation, creating multiple injection points that must ALL be properly parameterized.",
+  "description": "Medium difficulty SQL injection through dynamic WHERE clause construction with multiple conditions. The application builds complex WHERE clauses by concatenating multiple user-provided conditions using f-strings or string concatenation across three functions (search_products, authenticate_user, get_filtered_orders), creating 10 injection points that must ALL be properly parameterized.",
   
   "why_medium": [
     "Multiple injection points in WHERE clause requiring systematic fix",
@@ -29,11 +29,19 @@
       "max_price parameter in search_products()",
       "category parameter in search_products()",
       "username parameter in authenticate_user()",
-      "password parameter in authenticate_user()"
+      "password parameter in authenticate_user()",
+      "customer_id parameter in get_filtered_orders()",
+      "start_date parameter in get_filtered_orders()",
+      "end_date parameter in get_filtered_orders()",
+      "min_total parameter in get_filtered_orders()"
     ],
     "vulnerable_code_patterns": [
       "query = f\"SELECT * FROM products WHERE status = '{status}' AND price >= {min_price} AND price <= {max_price} AND category = '{category}'\"",
-      "query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}\""
+      "query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"",
+      "query += f\" AND customer_id = {customer_id}\"",
+      "query += f\" AND order_date >= '{start_date}'\"",
+      "query += f\" AND order_date <= '{end_date}'\"",
+      "query += f\" AND total >= {min_total}\""
     ],
     "root_cause": "Direct string interpolation of user-controlled values in WHERE clause without parameterization",
     "exploitability": "High - Multiple injection vectors, no validation, classic SQL injection"
@@ -92,7 +100,7 @@
   },
   
   "expected_llm_behavior": {
-    "detection": "Should identify all 6 WHERE clause injection points across both functions",
+    "detection": "Should identify all 10 WHERE clause injection points across three functions",
     "classification": "Should correctly classify as P4 (WHERE Clause) SQL Injection",
     "fix_approach": "MUST propose parameterized queries (%s placeholders) with parameter tuples",
     "common_mistakes": [
@@ -103,7 +111,7 @@
       "Mixing parameterization styles (some %s, some f-strings)"
     ],
     "success_criteria": [
-      "All 6 injection points use %s placeholders",
+      "All 10 injection points use %s placeholders",
       "All user input passed as parameters to cursor.execute()",
       "No f-strings or string concatenation for WHERE values",
       "Functional tests pass (correct query results)",

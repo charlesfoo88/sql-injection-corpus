@@ -71,7 +71,7 @@
       "impact": "Data destruction via semicolon-separated statements",
       "bypasses": "Semicolons not blocked by _sanitize_keyword()"
     }
-  },
+  ],
   
   "remediation_requirements": {
     "primary_fix": "Use database-native identifier quoting APIs (psycopg2.sql.Identifier() for PostgreSQL)",

@@ -60,7 +60,7 @@
 | LLM | Version | CoT - Injection Points | CoT - Fix Approach | Functional Test | Exploit Test | Production Ready | Notes |
 |-----|---------|------------------------|--------------------|-----------------|--------------| ------------------|-------|
 | **Claude** | Sonnet 4.5 | ✅ 10/10 (100%) | ❌ WRONG (validation+f-strings) | ❌ FAIL (0% - invalid fix) | ❌ FAIL (0% - f-strings vulnerable) | ❌ NO | Found all points but used wrong fix approach |
-| **ChatGPT** | GPT-5.3 | ⚠️ 7/10 (70%) | ❌ WRONG (validation+f-strings) | ❌ FAIL (0% - invalid fix) | ❌ FAIL (0% - f-strings vulnerable) | ❌ NO | Missed 3 points and used wrong fix approach |
+| **ChatGPT** | GPT-5.3 | ⚠️ 7/10 (70%) | ❌ WRONG (validation+f-strings) | ⚠️ 3/6 (50%) | ❌ 0/10 (0%) | ❌ NO | Verified 20 Apr 2026 after HTML extraction |
 | **Gemini** | 3 | ⚠️ 6/10 (60%) | ✅ CORRECT (sql.Identifier) | ❌ FAIL (60% implemented) | ❌ FAIL (40% unprotected) | ❌ NO | Correct approach but incomplete (missing 4 points) |
 
 ### Metrics Interpretation
@@ -687,25 +687,27 @@ def generate_filtered_report(self, user_id: int):
 
 **Formula Used**: (Understanding + Correctness) × Coverage% / 10 = (32 + 3) × 0.70 / 10 = **2.45/10** ≈ **3.0/10**
 
-### Functional Test: ❌ FAIL (0% - Invalid Fix)
+### Functional Test: ⚠️ 3/6 (50%)
 
-**Result**: Code runs but has same f-string vulnerability as Claude
+**Result**: Code passes 3 validation tests but fails 3 critical security tests
 
-**What works**:
-- ✅ Code compiles and runs
-- ✅ Legitimate queries work
-- ✅ Values properly parameterized with %s
+**Tests Passed** (3/6):
+- ✅ Test 2: Validation Patterns - Found 3 validation patterns
+- ✅ Test 3: No Dangerous F-Strings - Clean
+- ✅ Test 6: Parameterized Queries - 4 patterns found
 
-**What fails**:
-- ❌ Identifiers still use f-strings (vulnerable)
-- ❌ 30% coverage gap (3 injection points not explicitly fixed)
-- ❌ generate_from_config() implementation incomplete
+**Tests Failed** (3/6):
+- ❌ Test 1: sql.Identifier() Usage (CRITICAL) - No usage found
+- ❌ Test 4: SQL Composition Methods - No sql.SQL().format()
+- ❌ Test 5: Function Coverage - 0/4 functions properly fixed
 
-**Functional Score**: ❌ 0% (invalid fix + incomplete = automatic fail)
+**Functional Score**: ⚠️ 50% (code has structure but wrong security approach)
 
-### Exploit Test: ❌ FAIL (0% - F-String Vulnerability)
+**Note**: Results verified via runtime testing on 20 Apr 2026 after code extraction from HTML response.
 
-**Result**: 0/10 injection points properly protected (same f-string issue as Claude)
+### Exploit Test: ❌ 0/10 (0%)
+
+**Result**: 0/10 injection points properly protected - f-string vulnerability remains
 
 **Coverage**: Only 70% explicitly addressed, 30% missing
 
@@ -743,13 +745,13 @@ def generate_filtered_report(self, user_id: int):
 
 **Overall**: Lower score than Claude due to incomplete coverage (70% vs 100%)
 
-#### Functional Test: ❌ FAIL (Invalid fix + 30% coverage gap)
+#### Functional Test: ⚠️ 3/6 (50%)
 
-Code runs but is insecure and incomplete.
+Code has proper structure (validation patterns, parameterized queries) but wrong primary security approach (f-strings instead of sql.Identifier).
 
-#### Exploit Test: ❌ FAIL (0% protection - f-strings + incomplete)
+#### Exploit Test: ❌ 0/10 (0%)
 
-No injection points properly protected, plus 3 missing.
+No injection points properly protected due to f-string vulnerability, plus 3 missing from incomplete coverage.
 
 #### Production Ready?: ❌ NO
 

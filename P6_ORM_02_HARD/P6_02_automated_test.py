@@ -112,10 +112,21 @@ class P6_02_SecurityTester:
         """Load the implementation modules"""
         try:
             if self.implementation == 'claude':
-                # Load from claude_test/
-                sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'claude_test'))
+                impl_dir = os.path.join(os.path.dirname(__file__), 'claude_test')
+            elif self.implementation == 'chatgpt':
+                impl_dir = os.path.join(os.path.dirname(__file__), 'chatgpt_test')
+            elif self.implementation == 'gemini':
+                impl_dir = os.path.join(os.path.dirname(__file__), 'gemini_test')
+            else:
+                impl_dir = os.path.dirname(__file__)
             
-            # Import modules (will load from current directory or claude_test)
+            sys.path.insert(0, impl_dir)
+            
+            # Remove cached modules to force reload from new path
+            for mod in ['models', 'query_builder']:
+                if mod in sys.modules:
+                    del sys.modules[mod]
+            
             import models
             import query_builder
             

@@ -691,3 +691,27 @@ All exploit attempts would STILL SUCCEED = 100% vulnerable:
 - ❌ **100% of attack surface still vulnerable**
 - ❌ Wrong approach: Recommended ORM migration instead of implementing sql.Identifier() fix
 
+
+## Summary Observations
+
+- All three LLMs failed due to semantic gap: cannot distinguish column identifiers from SQL functions
+
+- Multi-file architecture (6 files, 13 injection points) exceeded all LLM capabilities
+
+- Claude failure: Over-strict validation applied pattern r'^[a-zA-Z0-9_] to ALL identifiers including COUNT()
+
+- Claude security: Perfect (19/19 exploits blocked via blanket validation)
+
+- Claude functional: Failed (1/2) — rejected legitimate COUNT(*) as invalid identifier
+
+- Claude paradox: Missed 3 injection points in analysis (77%) but blocked all exploits (100%) via over-general fix
+
+- ChatGPT failure: API redesign incomplete — .having(condition: str) changed to .having_count_gt(count: int)
+
+- ChatGPT security: Partial (16/19 blocked, 3 HAVING tests skipped due to missing method)
+
+- ChatGPT functional: Failed (1/2) — wrapped COUNT() as identifier causing column does not exist error
+
+- Gemini failure: Recommended ORM migration instead of fixing with sql.Identifier() — delivered only validators.py, no query builder code
+
+- Root cause: All LLMs treat COUNT(*), SUM(), AVG() as identifiers requiring sql.Identifier() protection, not recognizing them as SQL functions that must stay raw

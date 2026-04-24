@@ -14,7 +14,10 @@ Key changes:
 from django.db import models
 from django.db.models import Count, Q, Value
 from django.db.models.functions import Concat
-from django.db.models import RawSQL
+try:
+    from django.db.models import RawSQL
+except ImportError:
+    from django.db.models.expressions import RawSQL
 
 
 # --- Allowlists for dynamic identifiers ---

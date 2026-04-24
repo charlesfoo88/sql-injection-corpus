@@ -26,10 +26,12 @@ Each folder contains one complete vulnerability sample with all test files and r
 
 ```
 P4_WHERE_MULTI_01_MEDIUM/            ← Medium difficulty, first P4 pattern sample
+P4_WHERE_MULTI_02_MEDIUM/            ← Medium difficulty, second P4 pattern sample
 P5_DYNAMIC_IDENTIFIERS_01_MEDIUM/    ← Medium difficulty, first P5 pattern sample
 P5_DYNAMIC_IDENTIFIERS_02_HARD/      ← Hard difficulty, second P5 pattern sample
 P6_ORM_01_MEDIUM/                    ← Medium difficulty, first P6 pattern sample
 P6_ORM_02_HARD/                      ← Hard difficulty, second P6 pattern sample
+P6_ORM_03_MEDIUM/                    ← Medium difficulty, third P6 pattern sample
 P9_SECOND_ORDER_01_VERY_HARD/        ← Very hard difficulty, first P9 pattern sample
 ```
 
@@ -51,6 +53,7 @@ Each sample folder (e.g., `P5_DYNAMIC_IDENTIFIERS_01_MEDIUM/`) contains:
 | `P#_##_functional_test.py` | `P5_01_functional_test.py` | **Safe reference** - Shows correct implementation + tests |
 | `P#_##_metadata.json` | `P5_01_metadata.json` | **Structured info** - Sample details, CWE, attack vectors |
 | `P#_##_sqlite_test.py` | `P5_02_sqlite_test.py` | **Automated validation** - Security pattern testing (when available) |
+| `P#_##_injection_markers.json` | `P6_03_injection_markers.json` | **UI line markers** - Code viewer injection point markers (optional) |
 
 ### 📝 Prompt & Test Results
 
@@ -386,5 +389,5 @@ C:/Users/charlesfoo/anaconda3/Scripts/conda.exe run -n mdai python P5_01_functio
 
 ---
 
-**Last Updated**: March 30, 2026  
-**Corpus Status**: 6 samples tested and documented
+**Last Updated**: April 2026  
+**Corpus Status**: 8 samples tested and documented

@@ -1,4 +1,4 @@
-# P6_ORM_02_HARD: LLM Test Results
+﻿# P6_ORM_02_HARD: LLM Test Results
 
 **Status**: ✅ COMPLETE - All 3 LLMs tested with runtime validation  
 **Test Date**: March 10, 2026  
@@ -290,3 +290,21 @@ Replace `.raw()`, `.extra()`, and `RawSQL()` with Django ORM QuerySet API (`.fil
 - **ChatGPT GPT-5.3**: [llm_responses/ChatGpt P6 02.htm](llm_responses/ChatGpt%20P6%2002.htm) | Code: [llm_extracted/chatgpt_extracted/](llm_extracted/chatgpt_extracted/)
 - **Gemini 3**: [llm_responses/google p6 02.htm](llm_responses/google%20p6%2002.htm) | Code: [llm_extracted/gemini_extracted/](llm_extracted/gemini_extracted/)
 
+
+## Summary Observations
+
+- Remarkable result: ALL three LLMs produced IDENTICAL test outcomes (1/10 functional, 10/10 security)
+
+- All three achieved perfect security (10/10 exploits blocked) but failed API compatibility
+
+- Unanimous behavior: Changed method signatures from flexible strings to typed parameters
+
+- Example: get_projects_with_stats(filters='status = active', sort_field='name') changed to get_projects_with_stats(sort_field='name', filters={'status': 'active'})
+
+- Only 1/10 functional tests passed (search_by_criteria — simplest 2-parameter method)
+
+- All complex methods broken: changed parameter names, changed parameter types, eliminated flexible string-based APIs
+
+- Training data convergence: All three prioritized Django best practices over minimal fix despite explicit backward compatibility requirement
+
+- Impact: Code is 100% secure but requires refactoring all calling code (~20+ files) — not deployable as-is

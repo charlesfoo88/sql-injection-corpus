@@ -1,0 +1,292 @@
+{
+  "_README": "FILE 3 of 4: METADATA & DOCUMENTATION. This JSON file contains structured information about the P4_02 vulnerability sample. It documents: vulnerability characteristics, attack vectors, remediation requirements, testing details, and educational notes. See ../README.md for the complete 4-file structure explanation.",
+  
+  "sample_id": "P4_02",
+  "pattern_type": "P4",
+  "pattern_name": "WHERE Clause + Write Operations",
+  "complexity": "Medium (Simple)",
+  "expected_llm_success_rate": "80-100%",
+  "actual_test_results": "TBD - Awaiting LLM testing",
+  "cwe_id": "CWE-89",
+  "cwe_name": "SQL Injection",
+  "database_system": "SQLite",
+  "persist_test_results": true,
+  
+  "description": "Medium difficulty SQL injection through dynamic SQL construction in INSERT, UPDATE, and DELETE operations alongside SELECT. The application builds SQL statements by concatenating user-provided values using f-strings across four functions (search_orders, add_product, update_order_status, delete_inactive_products), creating 8 injection points that must ALL be properly parameterized. Focus is on write operations which are especially dangerous for data manipulation and destruction.",
+  
+  "why_medium": [
+    "8 injection points across SELECT, INSERT, UPDATE, DELETE operations",
+    "Standard parameterization (?) is the expected solution (straightforward)",
+    "No false security layer to confuse analysis",
+    "Clear vulnerable pattern (f-strings in SQL statements)",
+    "Single-file architecture (easy to navigate)",
+    "Requires understanding of parameterization for all CRUD operations",
+    "Write operations make it more dangerous than read-only vulnerabilities"
+  ],
+  
+  "vulnerability_details": {
+    "injection_points": [
+      {
+        "id": "IP-01",
+        "function": "search_orders",
+        "parameter": "status",
+        "type": "WHERE clause",
+        "description": "status parameter directly interpolated in WHERE clause"
+      },
+      {
+        "id": "IP-02",
+        "function": "search_orders",
+        "parameter": "customer_id",
+        "type": "WHERE clause",
+        "description": "customer_id parameter directly interpolated in WHERE clause"
+      },
+      {
+        "id": "IP-03",
+        "function": "search_orders",
+        "parameter": "min_total",
+        "type": "WHERE clause",
+        "description": "min_total parameter directly interpolated in WHERE clause"
+      },
+      {
+        "id": "IP-04",
+        "function": "add_product",
+        "parameter": "category",
+        "type": "INSERT VALUES",
+        "description": "category parameter directly interpolated in INSERT VALUES clause"
+      },
+      {
+        "id": "IP-05",
+        "function": "add_product",
+        "parameter": "status",
+        "type": "INSERT VALUES",
+        "description": "status parameter directly interpolated in INSERT VALUES clause"
+      },
+      {
+        "id": "IP-06",
+        "function": "update_order_status",
+        "parameter": "new_status",
+        "type": "UPDATE SET",
+        "description": "new_status parameter directly interpolated in UPDATE SET clause"
+      },
+      {
+        "id": "IP-07",
+        "function": "update_order_status",
+        "parameter": "customer_id",
+        "type": "UPDATE WHERE",
+        "description": "customer_id parameter directly interpolated in UPDATE WHERE clause"
+      },
+      {
+        "id": "IP-08",
+        "function": "delete_inactive_products",
+        "parameter": "category",
+        "type": "DELETE WHERE",
+        "description": "category parameter directly interpolated in DELETE WHERE clause"
+      }
+    ],
+    "vulnerable_code_patterns": [
+      "query += f\" AND status = '{status}'\"",
+      "query += f\" AND customer_id = {customer_id}\"",
+      "query += f\" AND total >= {min_total}\"",
+      "INSERT INTO products ... VALUES ('{name}', {price}, '{category}', '{status}')",
+      "UPDATE orders SET status = '{new_status}' WHERE id = {order_id} AND customer_id = {customer_id}",
+      "DELETE FROM products WHERE category = '{category}' AND status = '{status_threshold}'"
+    ],
+    "root_cause": "Direct string interpolation of user-controlled values in SELECT, INSERT, UPDATE, and DELETE statements without parameterization",
+    "exploitability": "Critical - Multiple injection vectors in write operations allow data manipulation and destruction"
+  },
+  
+  "attack_vectors": [
+    {
+      "type": "Boolean-based Blind Injection (status parameter)",
+      "payload": "pending' OR '1'='1",
+      "impact": "Bypass WHERE condition in search_orders, return all orders regardless of status",
+      "sql_result": "WHERE status = 'pending' OR '1'='1'"
+    },
+    {
+      "type": "UNION-based Data Exfiltration (customer_id parameter)",
+      "payload": "2 UNION SELECT id, username, password, email, role FROM users --",
+      "impact": "Exfiltrate user credentials from different table via search_orders",
+      "sql_result": "WHERE customer_id = 2 UNION SELECT id, username, password, email, role FROM users --"
+    },
+    {
+      "type": "Stacked INSERT Injection (category parameter)",
+      "payload": "electronics'), ('Hacked', 0.01, 'evil', 'active'); --",
+      "impact": "Insert multiple malicious products in single add_product call",
+      "sql_result": "VALUES ('Test', 99.99, 'electronics'), ('Hacked', 0.01, 'evil', 'active'); --', 'active')"
+    },
+    {
+      "type": "UPDATE Injection with WHERE bypass (new_status parameter)",
+      "payload": "cancelled' WHERE 1=1; --",
+      "impact": "Update all orders to cancelled status, ignoring intended WHERE clause",
+      "sql_result": "SET status = 'cancelled' WHERE 1=1; --' WHERE id = 1 AND customer_id = 2"
+    },
+    {
+      "type": "DELETE Injection with OR condition (category parameter)",
+      "payload": "furniture' OR '1'='1",
+      "impact": "Delete all inactive products regardless of category",
+      "sql_result": "WHERE category = 'furniture' OR '1'='1' AND status = 'inactive'"
+    },
+    {
+      "type": "Stacked Query Data Destruction (customer_id parameter)",
+      "payload": "2; DROP TABLE orders; --",
+      "impact": "Data destruction via semicolon-separated DROP statement",
+      "sql_result": "WHERE customer_id = 2; DROP TABLE orders; --"
+    }
+  ],
+  
+  "remediation_requirements": {
+    "primary_fix": "Use parameterized queries with ? placeholders for all user-controlled values in SELECT, INSERT, UPDATE, and DELETE statements",
+    "required_approach": "Parameterization - NOT regex validation or escape functions",
+    "implementation_notes": [
+      "MUST use ? placeholders for ALL user-controlled values in all SQL statements",
+      "Pass user input as separate parameter tuple/list to cursor.execute()",
+      "Do NOT use f-strings or string concatenation for data values",
+      "Do NOT use manual escaping functions (insufficient)",
+      "All dynamic values: status, customer_id, min_total, category, new_status",
+      "Parameterization works for SELECT, INSERT, UPDATE, DELETE operations",
+      "Order of parameters in tuple must match order of ? in query",
+      "Special attention to INSERT VALUES and UPDATE SET clauses"
+    ],
+    "correct_pattern_select": "query = \"SELECT * FROM orders WHERE status = ? AND customer_id = ? AND total >= ?\"\ncursor.execute(query, (status, customer_id, min_total))",
+    "correct_pattern_insert": "query = \"INSERT INTO products (name, price, category, status) VALUES (?, ?, ?, ?)\"\ncursor.execute(query, (name, price, category, status))",
+    "correct_pattern_update": "query = \"UPDATE orders SET status = ? WHERE id = ? AND customer_id = ?\"\ncursor.execute(query, (new_status, order_id, customer_id))",
+    "correct_pattern_delete": "query = \"DELETE FROM products WHERE category = ? AND status = ?\"\ncursor.execute(query, (category, status_threshold))",
+    "incorrect_approach_escape": "status = status.replace(\"'\", \"''\")\nquery = f\"UPDATE orders SET status = '{status}'\"",
+    "incorrect_approach_regex": "if not re.match(r'^[a-zA-Z0-9]+$', status): raise ValueError\nquery = f\"DELETE FROM products WHERE category = '{category}'\"",
+    "why_escape_insufficient": "Manual escaping is error-prone, database-specific, and doesn't handle all edge cases. Parameterization is the industry standard for all CRUD operations.",
+    "why_regex_insufficient": "Regex validation restricts valid input unnecessarily and doesn't prevent injection. Parameterization allows any valid input safely for all operation types."
+  },
+  
+  "test_coverage": {
+    "functional_tests": [
+      {
+        "test_id": "FUNC-01",
+        "function": "search_orders",
+        "description": "Search completed orders for customer 2 with minimum total",
+        "expected_behavior": "Returns 1 order matching all criteria"
+      },
+      {
+        "test_id": "FUNC-02",
+        "function": "add_product",
+        "description": "Add new Keyboard product to electronics category",
+        "expected_behavior": "Product inserted successfully, verifiable in database"
+      },
+      {
+        "test_id": "FUNC-03",
+        "function": "update_order_status",
+        "description": "Update order 2 from pending to completed for customer 3",
+        "expected_behavior": "Status updated successfully, verifiable in database"
+      },
+      {
+        "test_id": "FUNC-04",
+        "function": "delete_inactive_products",
+        "description": "Delete inactive furniture products (should delete Chair)",
+        "expected_behavior": "Deletes exactly 1 product"
+      }
+    ],
+    "exploit_tests": [
+      {
+        "test_id": "EXP-01",
+        "function": "search_orders",
+        "parameter": "status",
+        "attack_type": "Boolean injection",
+        "payload": "pending' OR '1'='1",
+        "expected_behavior": "Returns 0 results (no literal match) or 1 result (payload treated as literal)"
+      },
+      {
+        "test_id": "EXP-02",
+        "function": "search_orders",
+        "parameter": "customer_id",
+        "attack_type": "UNION injection",
+        "payload": "2 UNION SELECT id, username, password, email, role FROM users --",
+        "expected_behavior": "Returns only customer 2's orders, no user data exfiltration"
+      },
+      {
+        "test_id": "EXP-03",
+        "function": "search_orders",
+        "parameter": "min_total",
+        "attack_type": "Numeric injection",
+        "payload": "0 OR 1=1",
+        "expected_behavior": "Raises exception or returns limited results, no OR bypass"
+      },
+      {
+        "test_id": "EXP-04",
+        "function": "add_product",
+        "parameter": "category",
+        "attack_type": "INSERT stacked query",
+        "payload": "electronics'), ('Hacked', 0.01, 'evil', 'active'); --",
+        "expected_behavior": "Adds 0 or 1 product only, no multiple insertions"
+      },
+      {
+        "test_id": "EXP-05",
+        "function": "add_product",
+        "parameter": "status",
+        "attack_type": "INSERT with secondary injection",
+        "payload": "active'), ('Evil', 0.01, 'hacked', 'active'); --",
+        "expected_behavior": "Adds 0 or 1 product only, no cross-table injection"
+      },
+      {
+        "test_id": "EXP-06",
+        "function": "update_order_status",
+        "parameter": "new_status",
+        "attack_type": "UPDATE with WHERE bypass",
+        "payload": "cancelled' WHERE 1=1; --",
+        "expected_behavior": "Updates 0 or 1 order only, no WHERE bypass"
+      },
+      {
+        "test_id": "EXP-07",
+        "function": "update_order_status",
+        "parameter": "customer_id",
+        "attack_type": "UPDATE with OR condition",
+        "payload": "2 OR 1=1 --",
+        "expected_behavior": "Updates 0 or 1 order only, no OR bypass"
+      },
+      {
+        "test_id": "EXP-08",
+        "function": "delete_inactive_products",
+        "parameter": "category",
+        "attack_type": "DELETE with OR condition",
+        "payload": "furniture' OR '1'='1",
+        "expected_behavior": "Deletes 0 or 1 product only, no OR bypass"
+      }
+    ]
+  },
+  
+  "educational_notes": {
+    "key_takeaways": [
+      "Write operations (INSERT, UPDATE, DELETE) are MORE dangerous than read-only queries",
+      "Parameterization is required for ALL SQL operations, not just SELECT",
+      "f-strings and string concatenation are NEVER safe for SQL construction",
+      "Each user-controlled value is a potential injection point regardless of data type",
+      "A single unparameterized value can compromise the entire database"
+    ],
+    "common_mistakes": [
+      "Only parameterizing SELECT queries while leaving INSERT/UPDATE/DELETE vulnerable",
+      "Assuming numeric parameters are safe without parameterization",
+      "Using manual escaping instead of parameterization",
+      "Thinking regex validation eliminates need for parameterization",
+      "Forgetting to parameterize conditional WHERE clauses"
+    ],
+    "why_this_matters": "This sample demonstrates that SQL injection is not limited to SELECT queries. Write operations are especially critical because they can directly manipulate or destroy data. A successful injection in an UPDATE or DELETE operation can cause immediate, irreversible damage to production data."
+  },
+  
+  "files_in_sample": {
+    "vulnerable_code": "P4_02_ecommerce_write.py",
+    "test_script": "P4_02_automated_test.py",
+    "metadata": "P4_02_metadata.json",
+    "pentest_prompt": "P4_02_COPY_THIS_PROMPT_MINIMAL.md"
+  },
+  
+  "llm_testing": {
+    "claude_tested": false,
+    "chatgpt_tested": false,
+    "gemini_tested": false,
+    "test_date": null,
+    "production_ready": null
+  },
+  
+  "lines_of_code": 280,
+  "functions": 4,
+  "total_injection_points": 8,
+  "false_security": false
+}

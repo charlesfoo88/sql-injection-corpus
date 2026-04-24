@@ -6,6 +6,8 @@
   "actual_llm_success_rate": "TBD - Not tested yet",
   "architecture": "Multi-layer temporal separation with validation",
   "description": "Second-order SQL injection where user input is validated and stored safely at T1 (storage time), then retrieved and used unsafely at T2 (usage time). Requires tracing data flow across temporal separation, multiple files, and architectural layers.",
+  "business_context": "Enterprise reporting system with user preferences stored in database and used to generate configurable reports. Multi-layer architecture (API → Service → Model) with temporal separation between input validation and query usage. User preferences and report configurations stored in PostgreSQL and retrieved later to build dynamic SQL queries for employee reports.",
+  "vulnerability_description": "10 second-order SQL injection points across the reporting service. User-provided identifiers (sort fields, filter fields, group by fields, aggregate functions) are validated and stored safely using parameterized queries at T1 (storage time), then retrieved and used unsafely in f-string query construction at T2 (usage time). A triple-temporal chain exists where report configuration data passes through three storage layers before final usage in report generation.",
   
   "challenge_factors": [
     "Temporal separation between validation (T1) and exploitation (T2)",

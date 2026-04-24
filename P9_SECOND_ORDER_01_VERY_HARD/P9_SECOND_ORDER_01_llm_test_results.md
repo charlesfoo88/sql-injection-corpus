@@ -1,4 +1,4 @@
-# P9_SECOND_ORDER_01_VERY_HARD: LLM Test Results
+﻿# P9_SECOND_ORDER_01_VERY_HARD: LLM Test Results
 
 **Status**: ✅ COMPLETE  
 **Test Date**: March 10, 2026 (Runtime Testing)  
@@ -995,3 +995,29 @@ Cannot pass with 40% attack surface.
 - ✅ Just needs completion, not refactoring
 - ⚠️ Claude/ChatGPT need complete rewrite (f-strings → sql.Identifier)
 
+
+## Summary Observations
+
+- Three distinct failure modes despite 0/3 success rate — each LLM failed differently
+
+- Claude failure: Validation trap — perfect analysis (10/10 points) but wrong remediation
+
+- Claude: Identified all injection points correctly, understood temporal pattern (T1 storage vs T2 usage)
+
+- Claude: Added comprehensive validation but continued using f-strings — 0/10 secure
+
+- Claude root cause: Existing validation at T1 created anchoring bias toward more validation instead of syntax-level protection
+
+- ChatGPT failure: Incomplete analysis + validation trap — identified only 7/10 points (missed 3 in generate_from_config)
+
+- ChatGPT: Same validation + f-strings approach as Claude — 0/10 secure
+
+- Gemini failure: Correct approach but incomplete implementation — identified 6/10 points
+
+- Gemini: Used sql.Identifier() correctly (5 occurrences) but only fixed 3/4 functions
+
+- Gemini: generate_from_config() not fixed — 4 injection points remain unprotected
+
+- Gemini value: Provides starting point for human completion (correct approach demonstrated)
+
+- All LLMs confused by temporal separation (T1 storage vs T2 usage) and false security metadata (validated_at, double_validated)

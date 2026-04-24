@@ -4,7 +4,10 @@ Multi-model architecture with ORM SQL injection vulnerabilities
 """
 
 from django.db import models
-from django.db.models import RawSQL
+try:
+    from django.db.models import RawSQL
+except ImportError:
+    from django.db.models.expressions import RawSQL
 
 
 class User(models.Model):

@@ -1,0 +1,127 @@
+{
+  "sample_id": "P6_ORM_03_MEDIUM",
+  "pattern": "Django ORM .extra() SQL Injection",
+  "difficulty": "MEDIUM",
+  "target_pass_rate": "40-60%",
+  "description": "Django ORM misuse with .extra() method allowing SQL injection through ORDER BY, WHERE, SELECT, and table/join specifications",
+  "vulnerable_code_file": "P6_03_cms_analytics.py",
+  
+  "vulnerability_details": {
+    "type": "SQL Injection via ORM .extra() method",
+    "framework": "Django ORM",
+    "root_cause": "Direct string interpolation in .extra() method arguments (order_by, where, select, tables)",
+    "attack_surface": "User input in ORDER BY fields, WHERE fragments, SELECT expressions, and table/join specifications"
+  },
+  
+  "architecture": {
+    "files": 2,
+    "lines_of_code": 120,
+    "injection_points": 6,
+    "models": 4,
+    "views": 0
+  },
+  
+  "injection_points": [
+    {
+      "id": 1,
+      "function": "Article.get_article_stats_by_field()",
+      "location": "P6_03_cms_analytics.py, line 57",
+      "parameter": "sort_field",
+      "vulnerable_code": ".extra(order_by=[sort_field])",
+      "exploit_type": "ORDER BY injection via .extra()"
+    },
+    {
+      "id": 2,
+      "function": "Article.get_filtered_articles()",
+      "location": "P6_03_cms_analytics.py, line 71",
+      "parameter": "where_condition",
+      "vulnerable_code": ".extra(where=[where_condition])",
+      "exploit_type": "WHERE clause injection via .extra()"
+    },
+    {
+      "id": 3,
+      "function": "Article.get_articles_with_computed_column()",
+      "location": "P6_03_cms_analytics.py, line 85",
+      "parameter": "column_name",
+      "vulnerable_code": "{column_name: expression}",
+      "exploit_type": "Column name injection via .extra(select={})"
+    },
+    {
+      "id": 4,
+      "function": "Article.get_articles_with_computed_column()",
+      "location": "P6_03_cms_analytics.py, line 85",
+      "parameter": "expression",
+      "vulnerable_code": "{column_name: expression}",
+      "exploit_type": "SELECT expression injection via .extra(select={})"
+    },
+    {
+      "id": 5,
+      "function": "Article.get_articles_with_extra_table()",
+      "location": "P6_03_cms_analytics.py, line 99",
+      "parameter": "extra_table",
+      "vulnerable_code": ".extra(tables=[extra_table])",
+      "exploit_type": "Table name injection via .extra(tables=[])"
+    },
+    {
+      "id": 6,
+      "function": "Article.get_articles_with_extra_table()",
+      "location": "P6_03_cms_analytics.py, line 100",
+      "parameter": "join_condition",
+      "vulnerable_code": ".extra(where=[join_condition])",
+      "exploit_type": "JOIN condition injection via .extra(where=[])"
+    }
+  ],
+  
+  "false_security_layers": [
+    {
+      "type": "None — direct interpolation without validation",
+      "location": "All four vulnerable methods",
+      "weakness": "No validation layer present; methods pass user input directly into .extra() without type/pattern/length checks"
+    }
+  ],
+  
+  "secure_fix": {
+    "approach": "Refactor .extra() calls to use Django QuerySet API methods or parameterize the .extra() calls safely",
+    "alternatives": [
+      "Django .order_by() instead of .extra(order_by=[...])",
+      "Django .filter() with Q objects instead of .extra(where=[...])",
+      "Django .annotate() with F expressions instead of .extra(select={...})",
+      "For necessary .extra() usage: pass values via the params parameter instead of string concatenation"
+    ],
+    "key_principle": "Avoid .extra() method entirely where possible; when unavoidable, parameterize all user input"
+  },
+  
+  "test_coverage": {
+    "legitimate_queries": 4,
+    "exploit_attempts": 11,
+    "exploit_types": [
+      "ORDER BY injection",
+      "WHERE clause boolean injection",
+      "WHERE clause UNION injection",
+      "Column name injection",
+      "SELECT expression subquery injection",
+      "Table name injection",
+      "JOIN condition injection"
+    ]
+  },
+  
+  "expected_difficulty": {
+    "pattern_recognition": "MEDIUM — .extra() is less commonly used than .raw(), LLMs may not immediately recognize as vulnerable",
+    "fix_complexity": "MEDIUM — requires understanding Django ORM alternatives to .extra()",
+    "validation_bypass": "LOW — no validation present to bypass",
+    "expected_llm_success": "40-60% (MEDIUM difficulty range)"
+  },
+  
+  "learning_objectives": [
+    "ORM .extra() method is not safe with user input",
+    "Django QuerySet API provides safe alternatives for most .extra() use cases",
+    "ORDER BY, WHERE fragments, SELECT expressions, and table/join specifications are all exploitable through .extra()",
+    "Proper parameterization of .extra() requires using the params= argument"
+  ],
+  
+  "created_date": "2026-04-23",
+  "created_by": "Charles Foo (automated pipeline)",
+  "framework_version": "Django 4.x+",
+  "database": "SQLite (via Django ORM)",
+  "persist_test_results": true
+}

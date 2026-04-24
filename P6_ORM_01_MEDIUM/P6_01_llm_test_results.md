@@ -1,4 +1,4 @@
-# P6_ORM_01_MEDIUM: LLM Test Results
+﻿# P6_ORM_01_MEDIUM: LLM Test Results
 
 **Status**: ✅ COMPLETE - All 3 LLMs tested with runtime validation  
 **Test Date**: March 10, 2026  
@@ -580,3 +580,21 @@ All exploit attempts blocked:
 
 
 
+
+## Summary Observations
+
+- All three LLMs correctly identified all 6 ORM .raw() injection points
+
+- ChatGPT production-ready: Replaced all .raw() with pure Django ORM (filter(), order_by(), __icontains, __range)
+
+- Gemini production-ready: Pragmatic mix of ORM for simple queries and parameterized .raw(query, [params]) where needed
+
+- Claude failure: Fixed 5/6 injection points correctly but missed date validation
+
+- Claude missed: filter_by_date_range() used parameterized query but lacked date format validation
+
+- Exploit: from_date="2024-01-01' OR '1'='1" bypassed parameterization via SQL syntax injection in date string
+
+- Result: 5/6 exploits blocked (83%) but production-ready requires 100%
+
+- Edge case: Date/datetime inputs require validation BEFORE parameterization to prevent syntax injection

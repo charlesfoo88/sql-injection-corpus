@@ -1,0 +1,14 @@
+{
+  "markers": [
+    {"ip_id": 1, "file": "services\\report_service.py", "line": 155},
+    {"ip_id": 2, "file": "services\\report_service.py", "line": 212},
+    {"ip_id": 3, "file": "services\\report_service.py", "line": 212},
+    {"ip_id": 4, "file": "services\\report_service.py", "line": 267},
+    {"ip_id": 5, "file": "services\\report_service.py", "line": 267},
+    {"ip_id": 6, "file": "services\\report_service.py", "line": 328},
+    {"ip_id": 7, "file": "services\\report_service.py", "line": 335},
+    {"ip_id": 8, "file": "services\\report_service.py", "line": 337},
+    {"ip_id": 9, "file": "services\\report_service.py", "line": 328},
+    {"ip_id": 10, "file": "services\\report_service.py", "line": 350}
+  ]
+}

@@ -361,8 +361,8 @@ class P4_01_SecurityTester:
         print("=" * 70)
         
         malicious_payloads = [
-            "2026-01-01' OR '1'='1",
-            "2026-01-01'; DROP TABLE orders; --"
+            "9999-12-31' OR '1'='1",
+            "9999-12-31'; DROP TABLE orders; --"
         ]
         
         for payload in malicious_payloads:

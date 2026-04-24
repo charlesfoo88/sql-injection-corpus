@@ -1,4 +1,4 @@
-# P5_01_MEDIUM: LLM Test Results
+﻿# P5_01_MEDIUM: LLM Test Results
 
 **Status**: ✅ COMPLETE - All 3 LLMs tested with runtime validation  
 **Test Date**: March 10, 2026 (Runtime Testing)  
@@ -620,3 +620,19 @@ ALLOWED_TABLES = {'users', 'products', 'orders'}
 if table_name not in ALLOWED_TABLES:
     raise ValueError(f"Invalid table: {table_name}")
 ```
+
+## Summary Observations
+
+- All three LLMs correctly identified all 6 injection points in dynamic identifier pattern (table names, column names, ORDER BY fields, aggregate functions)
+
+- ChatGPT and Gemini production-ready: Used sql.Identifier() for all dynamic identifiers, maintained standalone function API
+
+- Claude failure: Refactored from standalone functions to class-based SecureQueryBuilder architecture
+
+- Claude security: Perfect (6/6 injection points protected with sql.Identifier())
+
+- Claude functional: Failed (0/2) — AttributeError: module has no attribute 'get_table_records'
+
+- Root cause: Not a drop-in replacement — requires instantiating connection pool + class object, breaking all calling code
+
+- Pattern: Perfect security knowledge does not guarantee production-ready code

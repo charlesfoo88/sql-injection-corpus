@@ -9,7 +9,7 @@
   "actual_test_results": "TBD - Awaiting LLM testing",
   "cwe_id": "CWE-89",
   "cwe_name": "SQL Injection",
-  "database_system": "PostgreSQL or SQLite",
+  "database_system": "SQLite",
   
   "description": "Medium difficulty SQL injection through dynamic WHERE clause construction with multiple conditions. The application builds complex WHERE clauses by concatenating multiple user-provided conditions using f-strings or string concatenation across three functions (search_products, authenticate_user, get_filtered_orders), creating 10 injection points that must ALL be properly parameterized.",
   
